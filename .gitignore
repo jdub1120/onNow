@@ -1,7 +1,10 @@
 # ignore the following folders
+/docker-data
 /node_modules
-/saved/mp3cache/**
-/saved/imagecache/**
+# Legacy cache location (optional local data); use config/cache/ instead
+/saved/**
+/config/cache/**
+!/config/cache/.keep
 /config/*.json
 /dist
 /public/custom/**
@@ -12,3 +15,10 @@
 !/public/custom/pictures/default
 !/public/custom/pictures/readme.txt
 !/public/custom/custom.css
+
+# Ads + custom pictures live under config/ (served at /custom/ads and /custom/pictures)
+/config/ads/**
+!/config/ads/.keep
+/config/custom-pictures/**
+!/config/custom-pictures/.keep
+!/config/custom-pictures/default/.keep

@@ -72,18 +72,27 @@ class Radarr {
     if (raw != null) {
       // move through results and populate media cards
       await raw.data.reduce(async (memo, md) => {
-        let noReleaseDate = false;
         await memo;
         const medCard = new mediaCard();
-        let releaseDate;
-        if(!await util.isEmpty(md.digitalRelease)){
-          let digitalRelease = new Date(md.digitalRelease);
-          releaseDate = digitalRelease.toISOString().split("T")[0];
-          noReleaseDate = true;
+        // Prefer digital, then physical, then theatrical — calendar already scoped the window.
+        let releaseDate = "No release date";
+        let hasReleaseDate = false;
+        let releaseCandidate = null;
+        if (!(await util.isEmpty(md.digitalRelease))) {
+          releaseCandidate = md.digitalRelease;
+        } else if (!(await util.isEmpty(md.physicalRelease))) {
+          releaseCandidate = md.physicalRelease;
+        } else if (!(await util.isEmpty(md.inCinemas))) {
+          releaseCandidate = md.inCinemas;
         }
-        else {
-          releaseDate = "No digital release date";
-          noReleaseDate = false;
+        if (releaseCandidate) {
+          try {
+            releaseDate = new Date(releaseCandidate).toISOString().split("T")[0];
+            hasReleaseDate = true;
+          } catch (e) {
+            releaseDate = String(releaseCandidate);
+            hasReleaseDate = true;
+          }
         }
         medCard.tagLine =
           md.title + " (" + releaseDate + ")";
@@ -199,8 +208,9 @@ class Radarr {
         //   if(medCard.theme.includes("undefined")) medCard.theme="";
         // }
 
-        // add media card to array, only if not released yet (caters to old movies being released digitally)
-        if (md.hasFile == false && md.status != "released" && noReleaseDate != false){ //&& !await util.isEmpty(md.digitalRelease) ) {
+        // Include upcoming movies not yet downloaded. Require some release date
+        // (digital/physical/theatrical) so taglines are useful; do not require digital-only.
+        if (md.hasFile == false && hasReleaseDate) {
           csrCards.push(medCard);
         }
 
