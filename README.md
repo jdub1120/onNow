@@ -4,8 +4,12 @@
 
 ![Platforms](https://img.shields.io/badge/platform-docker-blue)
 
-![Slides](https://github.com/petersem/posterr/blob/master/doco/posterr.jpg?raw=true)
-![Awtrix](https://github.com/petersem/posterr/blob/master/doco/awtrix.gif?raw=true)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jdub1120/onNow/main/doco/movie-now-playing.jpg" width="24%" alt="Movie Now Playing" />
+  <img src="https://raw.githubusercontent.com/jdub1120/onNow/main/doco/tv-show-now-playing.jpg" width="24%" alt="TV show Now Playing" />
+  <img src="https://raw.githubusercontent.com/jdub1120/onNow/main/doco/music-now-playing.jpg" width="24%" alt="Music Now Playing" />
+  <img src="https://raw.githubusercontent.com/jdub1120/onNow/main/doco/sports-now-playing.jpg" width="24%" alt="Live sports Now Playing" />
+</p>
 
 **Source:** [github.com/jdub1120/onNow](https://github.com/jdub1120/onNow) · **Docker image:** [`jdub1120/onnow`](https://hub.docker.com/r/jdub1120/onnow) (`:latest`) · **Support/issues:** [github.com/jdub1120/onNow/issues](https://github.com/jdub1120/onNow/issues)
 
