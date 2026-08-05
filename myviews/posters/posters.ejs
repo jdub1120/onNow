@@ -862,12 +862,40 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
         // see the comment on this element's data-away-color/data-home-color attributes in
         // MediaCard.js for why that broke on displays whose aspect ratio makes the centered
         // logo group narrower relative to the screen than it was in testing.
+        //
+        // A CSS linear-gradient's percentage stops are measured along the gradient's OWN
+        // diagonal line, not straight left-to-right — and that line's length depends on the
+        // box's width:height ratio (see the CSS Images spec's gradient-line construction).
+        // Treating a stop's "%" as if it were plain horizontal screen position (as an earlier
+        // version of this code did) only happens to look right at whatever aspect ratio it was
+        // tested at; on a differently-proportioned screen (e.g. a portrait TV much taller/
+        // narrower than a test browser window) the transition band lands somewhere else
+        // entirely. Converting each logo's actual (x, y) position into a proper position along
+        // the 135deg gradient line fixes that for any aspect ratio.
         var posterArtEl = $('#' + id + ' .posterArt');
         var awayColorAttr = posterArtEl.attr('data-away-color');
         var homeColorAttr = posterArtEl.attr('data-home-color');
         if (awayColorAttr && homeColorAttr) {
-          var awayRightPct = (groupCenterX + awayCenterXLocal + logoSize / 2) / window.innerWidth * 100;
-          var homeLeftPct = (groupCenterX + homeCenterXLocal - logoSize / 2) / window.innerWidth * 100;
+          var gradAngleRad = 135 * Math.PI / 180;
+          var gradDirX = Math.sin(gradAngleRad);
+          var gradDirY = -Math.cos(gradAngleRad);
+          var gradW = window.innerWidth;
+          var gradH = window.innerHeight;
+          // Half-length of the gradient line (center to each end) for this box + angle.
+          var gradHalfLen = (Math.abs(gradW * gradDirX) + Math.abs(gradH * gradDirY)) / 2;
+          // Projects a screen point onto the gradient line and returns its stop percentage.
+          function gradientPercentAt(px, py) {
+            var t = (px - gradW / 2) * gradDirX + (py - gradH / 2) * gradDirY;
+            return 50 + (t / gradHalfLen) * 50;
+          }
+
+          var awayEdgeX = groupCenterX + awayCenterXLocal + logoSize / 2;
+          var awayEdgeY = sportsGroupTop + awayTopLocal + logoSize / 2;
+          var homeEdgeX = groupCenterX + homeCenterXLocal - logoSize / 2;
+          var homeEdgeY = sportsGroupTop + homeTopLocal + logoSize / 2;
+
+          var awayRightPct = gradientPercentAt(awayEdgeX, awayEdgeY);
+          var homeLeftPct = gradientPercentAt(homeEdgeX, homeEdgeY);
           // Keep a minimum gap even if the logos end up touching/overlapping at extreme aspect
           // ratios, and clamp to a sane range so the stops stay in ascending order.
           if (homeLeftPct - awayRightPct < 4) {
