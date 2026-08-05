@@ -7,7 +7,7 @@
 #
 # host networking is Linux-only (not available on Docker Desktop for Mac/Windows) and is
 # mutually exclusive with the `ports:` mapping in docker-compose.yml — with network_mode: host,
-# the container shares the host's network stack directly and PosterX listens on the host's
+# the container shares the host's network stack directly and OnNow listens on the host's
 # port 3000 (not 9876), ignoring `ports:` entirely.
 #
 # Usage:
@@ -15,7 +15,7 @@
 #
 # With network_mode: host, the container shares the host's network stack directly, so the
 # `ports: - 9876:3000` mapping and `extra_hosts` from docker-compose.yml become moot (Compose
-# ignores/warns on published ports under host networking) — PosterX will be reachable directly
+# ignores/warns on published ports under host networking) — OnNow will be reachable directly
 # on the host's own port 3000 instead of 9876.
 #
 # If you're not on Linux, or don't want host networking: pair once from any machine on the
@@ -26,5 +26,5 @@
 version: "3.8"
 
 services:
-  posterr:
+  onnow:
     network_mode: host

@@ -1,16 +1,16 @@
-# PosterX — requires Docker Engine 20.10+ for host.docker.internal (Linux).
-# Jellyfin / Emby / Kodi / Plex are reached over HTTP from PosterX settings (no extra container packages).
+# OnNow — requires Docker Engine 20.10+ for host.docker.internal (Linux).
+# Jellyfin / Emby / Kodi / Plex are reached over HTTP from OnNow settings (no extra container packages).
 #
 # Volumes:
 #   config/ — settings.json, cache/, ads/, ads-view/, custom-pictures/, SQLite DBs (mount whole config dir).
-#   Optional: public/custom — legacy uploads; on first run PosterX copies into config/ if those folders are empty.
+#   Optional: public/custom — legacy uploads; on first run OnNow copies into config/ if those folders are empty.
 
 version: "3.8"
 
 services:
-  posterr:
-    image: posterrx
-    container_name: posterr
+  onnow:
+    image: jdub1120/onnow:latest
+    container_name: onnow
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -20,9 +20,9 @@ services:
       BASEPATH: ""
       ET: "false"
     volumes:
-      - ~/docker/posterr/config:/usr/src/app/config
+      - ~/docker/onnow/config:/usr/src/app/config
       # Legacy only — omit if unused; one-time migration copies into config/ when config ads/pictures are empty
-      - ~/docker/posterr/custom:/usr/src/app/public/custom
+      - ~/docker/onnow/custom:/usr/src/app/public/custom
     ports:
       - 9876:3000
     restart: unless-stopped

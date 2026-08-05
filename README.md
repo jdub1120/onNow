@@ -1,114 +1,86 @@
 # OnNow
-## Media display software for Plex, Jellyfin, Emby, Kodi, Sonarr, Radarr, and Readarr. (Fork of [PosterrX](https://github.com/binarygeek119/posterrX), itself a fork of [Posterr](https://github.com/petersem/posterr) — theatre-foyer style displays for your library.)
 
-> **About this repository**  
-> **OnNow** is an **AI-assisted fork** of [PosterrX](https://github.com/binarygeek119/posterrX) by **binarygeek119**, which is itself a fork of the original [Posterr](https://github.com/petersem/posterr) by **Matt Petersen**. Upstream (PosterrX) owns the design this fork builds on; this repo adds the features in **New in this fork** below.  
-> **Source:** [github.com/jdub1120/onNow](https://github.com/jdub1120/onNow) · **Docker image:** [`jdub1120/onnow`](https://hub.docker.com/r/jdub1120/onnow) (`:latest`)  
-> **Sister project:** [binarygeek119/ubuntudisplayos](https://github.com/binarygeek119/ubuntudisplayos) for Ubuntu-based multi-display kiosk hosts that pair well with OnNow.
+**A rotating poster display for your home media library** — movies, TV shows, music, books, coming-soon titles, and live "now playing" status, on any screen with a browser. Works with Plex, Jellyfin, Emby, and Kodi, plus optional Sonarr, Radarr, and Readarr integration.
 
 ![Platforms](https://img.shields.io/badge/platform-docker-blue)
-[![Upstream wiki](https://img.shields.io/badge/upstream-wiki-informational?logo=github)](https://github.com/petersem/posterr/wiki/Posterr-Configuration)
 
 ![Slides](https://github.com/petersem/posterr/blob/master/doco/posterr.jpg?raw=true)
 ![Awtrix](https://github.com/petersem/posterr/blob/master/doco/awtrix.gif?raw=true)
 
-Original Posterr community Discord: [https://discord.gg/TcnEkMEf9J](https://discord.gg/TcnEkMEf9J) — please don't ask them for OnNow support.  
-PosterrX community Discord: [https://discord.gg/AEhVjqX4Af](https://discord.gg/AEhVjqX4Af) — please don't ask them for OnNow support either; OnNow is a separate, further fork maintained independently.  
-OnNow support/issues: [github.com/jdub1120/onNow/issues](https://github.com/jdub1120/onNow/issues).  
+**Source:** [github.com/jdub1120/onNow](https://github.com/jdub1120/onNow) · **Docker image:** [`jdub1120/onnow`](https://hub.docker.com/r/jdub1120/onnow) (`:latest`) · **Support/issues:** [github.com/jdub1120/onNow/issues](https://github.com/jdub1120/onNow/issues)
+
 **Default settings password:** `raidisnotabackup`
 
----
-## Features
- - Displays movies, shows, music poster for what's currently playing.
- - Displays random (on-demand) titles from multiple libraries (Plex, Jellyfin, Emby, or Kodi sources).
- - On-demand supports movies, TV, music albums, books, and audiobooks (server/library type dependent).
- - Displays custom pictures, background art, and themes
- - Shows coming soon titles from Sonarr (or Season premieres).
- - Shows coming soon titles from Radarr.
- - Shows coming soon books from Readarr.
- - Optionally plays TV and Movies themes, if available
- - A playing progress bar (green for direct play and red for transcoding)
- - Various metadata displayed, such as run time, content rating, studio, etc. 
- - Move the mouse cursor to the bottom footer of the page to hide it
- - Background artwork option for improved landscape view (when available)
- - Automatically scales for most display sizes and orientation.
- - 'Sleep timer' disables the display during set hours.
- - Trivia Quiz (multiple selectable topics)
- - Support LED Matrix displays running Awtrix software
- - Display custom web pages as slides (if web page compatible) - **EXPERIMENTAL!**
- - Rotate display -90° (for running on display devices, like Firesticks, which do not support portrait rotation)
- - Post API (at '/api/sleep') to toggle sleep mode. (Pass in header values `'psw: your OnNow password'` and `'sleep: true|false'`)
- - Get API at the same endpoint will return the sleep status without any parsed parameters.
- - Supports `CEC` control of a monitor together with the OnNow sleep timer.
- - **TMDB “Now Showing”** list with dedicated **`/now-showing`** view, optional main-poster slides, showtimes, and library fill-in — details under **Display controls (this modified branch)** below.
+### Lineage
 
-### New in this fork (recent)
-These are additions on top of upstream behaviour (current fork **`package.json`** version is **2.1.0**).
+OnNow is a fork of [PosterrX](https://github.com/binarygeek119/posterrX) (by binarygeek119), which is itself a fork of the original [Posterr](https://github.com/petersem/posterr) by Matt Petersen. All three are separate, independently maintained projects — please don't use one project's support channels for another:
 
-| Area | What changed |
-|------|----------------|
-| **Release notice** | After an upgrade, a **red banner** on the **home poster view**, **`/now-showing`**, and **settings** pages reminds you that new features shipped. It clears after you open **Settings** and click **Acknowledge there are new features**. Your choice is stored in `settings.json` (`newFeaturesAcknowledgedVersion`); the banner comes back when the app **version string** in `package.json` changes again (any **X.Y.Z** bump). |
-| **Settings → About** | Identifies this app as **OnNow**, an AI-assisted fork of **PosterrX** (by binarygeek119), itself a fork of Posterr, **purely AI-modified**. Original author credits and upstream links stay in the same tab. |
-| **Settings navigation** | **Sync**, **Cache**, **Now Showing**, and **TMDB API** pages use the **same sidebar and mobile icons** as each other, including **Debug** and **About**, so entries no longer disappear when you switch pages. |
-| **Ads (main deck + `/settings/ads`)** | When **Enabled**, ad slides rotate with the home posters (**every *n* posters**, optional **only show ads**). Upload images, prices, and optional per-slide backgrounds; metadata in **`config/ads.db`**, files under **`config/ads`**. |
-| **Dedicated `/ads` view** | Full-screen ad slideshow: **seconds per ad** advances each slide; **seconds on full `/ads` page before returning home** is separate (`0` = manual leave; otherwise **30–86400** seconds then redirect to **`/`**). Optional backdrop from **`config/ads-view`** (`**/custom/ads-view/**`). |
-| **Apple TV Now Playing** | Optional add-on integration (a local Python sidecar using `pyatv`) that shows what's actively playing on paired Apple TVs — movies, TV shows, music, and live sports — alongside your existing Plex/Jellyfin/Emby/Kodi Now Playing. Pair and manage devices under **Settings → Apple TV**. |
-| **Apple Music-style Now Playing (music)** | Music/track cards get a dedicated layout: album art with a dynamic color-gradient background extracted from the artwork, title/artist caption, an animated equalizer icon that freezes when paused, and a "Playing in {device}" pill. |
-| **Live sports Now Playing (Apple TV)** | Recognizes when Apple TV content is a real sporting event — matches the on-screen title against ESPN's public scoreboard and team data (NFL, MLB, NBA, NHL, college football/basketball, MLS) — before showing a matchup card, so ordinary movies/shows/other live TV on the same apps (YouTube TV, ESPN, MLB, etc.) are unaffected. The card shows both teams' logos and colors on a gradient split between them, a live or final score, and — for MLB specifically — inning, outs, and a runners-on-base diamond, all refreshed while the game is in progress. |
-
-### Display controls (this modified branch)
- - Per-media poster toggles:
-   - Display movie and TV posters
-   - Display albums
-   - Display books and audiobooks
- - Optional metadata pills:
-   - Show cast, directors, authors, and album artist
- - Optional featured portrait modes:
-   - Display actors and actresses
-   - Display director portrait
-   - Show author portrait
-   - Display artist portrait
- - Featured portrait modes can render a person/artist image as the main poster, show their name in the top banner, and show up to 5 related credits in the bottom line when metadata is available.
- - Now Screening/Now Playing support includes music and audiobooks (in addition to movies/TV) for supported servers.
- - **Dedicated Now Showing view (`/now-showing`):** TMDB-backed list with **auto showtimes** spaced by **feature runtime + 10 minutes** between each listed time (manual times unchanged when you choose “manual” per title). Optional **library fillers** sample the same on-demand title pool as poster slides; fillers are excluded when they match a curated title (by normalized name).
- - **Settings → Ads:** enable ads, spacing (**every *n* posters**), **only show ads**, currency, title outline on `/ads`, **seconds per ad** on `/ads` (slide rotation), **seconds on the full `/ads` page before returning home** (separate timer; returns to home posters at **`/`** when non-zero). Manage slides and optional per-slide backgrounds on **`/settings/ads`**; open the dedicated view at **`/ads`**.
- - **Settings layout:** **Now Playing (media server)** and **Now Showing (main poster)** sections are ordered with **Now Playing first** in the accordion and related settings shortcuts.
- - **Poster / library sync:** manual **full sync** and **abort** from **Settings → Sync**; optional **About sync** modal. Jellyfin/Emby library paging: optional env **`POSTERR_JELLYFIN_LIBRARY_PAGE_LIMIT`** (integer **50–500**, default **300**) for items per request during large library walks.
-
-### Free community custom posters
-Community-sourced, open-use custom poster images for OnNow (and similar apps) live in **[binarygeek119/open-custom-posters](https://github.com/binarygeek119/open-custom-posters)**. Use them in your **`public/custom`** / Docker **`custom`** picture themes; open an issue to request more, or submit a pull request with your art in a folder named for your GitHub username. Discord: [open-custom-posters](https://discord.gg/AEhVjqX4Af).
+- Original Posterr community Discord: [discord.gg/TcnEkMEf9J](https://discord.gg/TcnEkMEf9J)
+- PosterrX community Discord: [discord.gg/AEhVjqX4Af](https://discord.gg/AEhVjqX4Af)
+- OnNow issues/support: [github.com/jdub1120/onNow/issues](https://github.com/jdub1120/onNow/issues)
 
 ---
+
+## What it does
+
+- Shows a poster for whatever's currently playing — movies, TV episodes, music, or audiobooks — pulled from your media server's "now playing" state.
+- Rotates through your library on a timer when nothing's playing, sourced from Plex, Jellyfin, Emby, or Kodi.
+- Shows upcoming releases from Sonarr (season premieres) and Radarr, and upcoming books from Readarr.
+- Optional dedicated **Now Showing** view (`/now-showing`) — a TMDB-backed "movies playing now" board with auto-generated showtimes, independent of your media server.
+- Optional ad/announcement slides mixed into the rotation, or as their own full-screen view (`/ads`).
+- Plays TV/movie theme music during slides, if available.
+- Custom picture themes, background artwork, and a trivia quiz mode.
+- Supports LED matrix displays running Awtrix, and custom web pages as experimental slides.
+- Scales automatically across screen sizes (roughly 320px to 3500px tall) and supports 90° rotation for displays that don't do portrait natively.
+- Scheduled "sleep timer" to blank the display during set hours, with optional CEC control so the screen itself powers down too.
+- A small REST API for sleep mode: `POST /api/sleep` (headers `psw: your OnNow password`, `sleep: true|false`) toggles it; `GET` on the same endpoint returns the current sleep status.
+
+## Apple TV Now Playing
+
+An optional add-on (a local Python sidecar using [pyatv](https://pyatv.dev/)) that reads tvOS's system-wide Now Playing info directly from paired Apple TVs — no per-app integration needed on your end, though support depends on each app choosing to report to that system API (most do; a few, like Netflix, don't and can't be worked around). Pair and manage devices under **Settings → Apple TV**.
+
+Three dedicated layouts on top of the base integration:
+
+- **Movies & TV shows** — the normal poster flow, resolved against TMDB, with rating and content-rating badges.
+- **Music** — an Apple Music-style card: album art on a dynamic color gradient extracted from the artwork, title/artist caption, an animated equalizer that freezes when paused, and a "Playing in {device}" pill.
+- **Live sports** — recognizes when Apple TV content is a real sporting event by matching the on-screen title against ESPN's public scoreboard and team data (NFL, MLB, NBA, NHL, college football/basketball, MLS) — not just guessed from which app is open, so ordinary movies/shows/other live TV in the same apps (YouTube TV, ESPN, MLB, etc.) are unaffected. Shows both teams' logos and colors on a gradient split between them, a live or final score, and — for MLB specifically — inning, outs, and a runners-on-base indicator, all refreshed while the game is in progress.
+
+## Free community custom posters
+
+Community-sourced, open-use custom poster images (for OnNow and similar apps) live in [binarygeek119/open-custom-posters](https://github.com/binarygeek119/open-custom-posters). Use them in your `public/custom` / Docker `custom` picture themes; open an issue to request more, or submit a pull request with your art in a folder named for your GitHub username.
+
+---
+
 ## Prerequisites
-### Mandatory
- - Plex, Jellyfin, Emby, or Kodi (settings → server type; Kodi needs HTTP JSON-RPC enabled)
 
-### Optional
- - Sonarr
- - Radarr
- - Readarr (or Chaptarr-compatible book stack)
- - **TMDB API key** (for Now Showing movie search, list, and artwork) — set in **Settings → TMDB API** or **`TMDB_API_KEY`** environment variable
+**Required:** Plex, Jellyfin, Emby, or Kodi (Kodi needs HTTP JSON-RPC enabled).
+
+**Optional:**
+- Sonarr, Radarr, and/or Readarr (or a Chaptarr-compatible book stack)
+- A TMDB API key, for the Now Showing view, movie search, and artwork lookups — set it in **Settings → TMDB API** or via the `TMDB_API_KEY` environment variable. Don't have one? Create a free TMDB account and request a key (choose "Developer" / API, v3 auth) at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) — approval is usually instant.
+
 ---
 
 ## Installation
-Installation details are as follows:
-### <ins>Docker Compose (X86, ARM64)</ins>
-Create the following directories in your docker folder:
- - ./docker/posterr
- - ./docker/posterr/config
- - ./docker/posterr/custom
+
+### Docker Compose
+
+Create these directories in your Docker folder:
+- `./docker/onnow`
+- `./docker/onnow/config`
+- `./docker/onnow/custom`
 
 ```yaml
 services:
-  posterr:
+  onnow:
     image: jdub1120/onnow:latest
-    container_name: posterr
+    container_name: onnow
     environment:
       TZ: Australia/Brisbane
       BASEPATH: ""
     volumes:
-      - ./docker/posterr/config:/usr/src/app/config
-      - ./docker/posterr/custom:/usr/src/app/public/custom
+      - ./docker/onnow/config:/usr/src/app/config
+      - ./docker/onnow/custom:/usr/src/app/public/custom
     ports:
       - 9876:3000
     restart: unless-stopped
@@ -117,166 +89,159 @@ services:
       - "host.docker.internal:host-gateway"
 ```
 
-#### Docker: mount `config` so settings **and** cache survive restarts
-
-The **`config`** volume is required not only for **`settings.json`**, but also for everything under **`config/cache/`** on the container:
-
-| Path (inside container) | Purpose |
-|-------------------------|---------|
-| `config/settings.json` | OnNow settings |
-| `config/posterr-poster-metadata.db` | Poster / library sync metadata (SQLite) |
-| `config/now-showing.db` | TMDB **Now Showing** movie list (dedicated `/now-showing` screen and optional main-poster slides) |
-| `config/ads.db` | **Ads** slide list (titles, prices, paths) for **`/ads`** and the main poster deck |
-| `config/ads/` · `config/ads-view/` | Uploaded **ad images** and optional **full-page `/ads` backdrop** (served as **`/custom/ads/`** and **`/custom/ads-view/`**) |
-| `config/cache/imagecache/` | Downloaded posters, fan art, and related images |
-| `config/cache/mp3cache/` | Cached TV/movie theme MP3s |
-| `config/cache/randomthemes/` | Optional random theme storage |
-
-Mount **one host folder** to **`/usr/src/app/config`** (as in the Compose example). OnNow creates `cache/` and subfolders on first use. If this path is not persisted on the host, **settings, poster sync, and cached artwork are lost** when the container is recreated.
-
-**Older setups** used a separate **`saved`** volume. That layout is deprecated: on the host directory you mount as **`config`**, create **`cache/`** and move in the old **`saved/imagecache`**, **`saved/mp3cache`**, and **`saved/posterr-poster-metadata.db`** (so inside the container they appear as **`config/cache/...`**).
-
-#### Media servers (Plex, Jellyfin, Emby, Kodi) in Docker
-OnNow only needs **outbound HTTP(S)** to your server — no extra packages in the image.
-
-| Where the server runs | What to enter as **host** in OnNow settings |
-|----------------------|-----------------------------------------------|
-| **Another container** on the same Compose network | The **service name** (e.g. `jellyfin`, `emby`) and that service’s port (often `8096`). |
-| **Same machine as Docker, outside containers** (typical Kodi / bare-metal Plex) | `host.docker.internal` (with `extra_hosts` as above on **Linux**; Docker Desktop often works without it). |
-| **Another machine on your LAN** | That machine’s IP or hostname (container must be able to route to it). |
-
-**Kodi:** set server type to **Kodi**, port to Kodi’s **Web server / JSON-RPC** port (often **8080**), and **Token** only if HTTP auth is enabled in Kodi (otherwise leave blank).
-
-Example **Jellyfin + OnNow** on one stack: see [`docker-compose.media-servers.example.yml`](docker-compose.media-servers.example.yml). Start with:
-
-`docker compose -f docker-compose.yml -f docker-compose.media-servers.example.yml up -d`
-
-Then set server type to **Jellyfin**, host **`jellyfin`**, port **8096**, and your API key.
-
-### <ins>Docker CLI (X86, ARM64)</ins>
-Create the following directories in your docker folder:
- - ./docker/posterr
- - ./docker/posterr/config
- - ./docker/posterr/custom
+### Docker CLI
 
 ```
-docker run -d --name posterr \
+docker run -d --name onnow \
 -p 9876:3000 \
--v ~/docker/posterr/config:/usr/src/app/config \
--v ~/docker/posterr/custom:/usr/src/app/public/custom \
+-v ~/docker/onnow/config:/usr/src/app/config \
+-v ~/docker/onnow/custom:/usr/src/app/public/custom \
 -e TZ=Australia/Brisbane \
 --add-host=host.docker.internal:host-gateway \
 --restart=always \
 jdub1120/onnow:latest
 ```
 
-On **Docker Engine 20.10+**, `--add-host=host.docker.internal:host-gateway` lets OnNow reach Plex/Jellyfin/Emby/Kodi running on the **host** (Linux). Omit if you only use container-to-container names on a custom network.
+`--add-host=host.docker.internal:host-gateway` (Docker Engine 20.10+) lets OnNow reach Plex/Jellyfin/Emby/Kodi running on the host itself (Linux). Omit it if you only use container-to-container names on a custom network.
 
-#### Details
-|Option|Details|
+### Unraid
+
+Install via Docker using the Compose or `docker run` examples above, or a Community Applications template if one matches this image.
+
+### Options reference
+
+| Option | Details |
 |--|--|
-|TZ|Your local timezone. Go to [wikipedia](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) and use the `TZ Database Name` value.|
-|/docker/posterr/config → `/usr/src/app/config`|**Required.** Holds `settings.json` **and** the **`cache/`** subtree (poster SQLite DB, `imagecache/`, `mp3cache/`). Use a persistent host directory so nothing is lost on container recreate.|
-|/docker/posterr/custom|Mount for **custom picture** themes under `public/custom` (omit if you do not use them)|
-|Ports|Change first part to a different port if needed. e.g. 9876:3000|
-|BASEPATH|`"/your-prefix"` for reverse proxies that serve OnNow under a subpath. Omit or leave empty if unused.|
-|extra_hosts `host.docker.internal`|Helps OnNow reach **Jellyfin, Emby, Kodi, or Plex on the Docker host** from inside the container (Linux). Requires Docker Engine **20.10+**. |
+| `TZ` | Your local timezone — use the `TZ Database Name` value from [this list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). |
+| `config` volume | **Required.** Holds `settings.json` and everything under `cache/` (poster metadata, downloaded images, theme MP3s). Use a persistent host directory — see the table below. |
+| `custom` volume | Optional — for custom picture themes under `public/custom`. Omit if unused. |
+| Ports | Change the first number to use a different host port, e.g. `9876:3000`. |
+| `BASEPATH` | Set to `"/your-prefix"` if a reverse proxy serves OnNow under a subpath. Leave empty/omit otherwise. |
+| `extra_hosts: host.docker.internal` | Lets the container reach a media server running on the Docker host itself (Linux; Docker Engine 20.10+). |
 
-### <ins>Unraid</ins>
- - Install via **Docker** using the Compose or `docker run` examples above, or a Community Applications template if one matches this image.
+### What lives in the config volume
+
+| Path (inside container) | Purpose |
+|--|--|
+| `config/settings.json` | OnNow settings |
+| `config/posterr-poster-metadata.db` | Poster/library sync metadata (SQLite) |
+| `config/now-showing.db` | TMDB Now Showing movie list |
+| `config/ads.db` | Ad slide list (titles, prices, paths) |
+| `config/ads/`, `config/ads-view/` | Uploaded ad images and optional full-page `/ads` backdrop |
+| `config/cache/imagecache/` | Downloaded posters, fan art, and related images |
+| `config/cache/mp3cache/` | Cached TV/movie theme MP3s |
+| `config/cache/randomthemes/` | Optional random theme storage |
+
+Mount one host folder to `/usr/src/app/config`; OnNow creates `cache/` and its subfolders on first use. If this path isn't persisted, settings, poster sync, and cached artwork are lost whenever the container is recreated.
+
+**Migrating from an older separate `saved` volume:** that layout is deprecated. On the host directory you now mount as `config`, create `cache/` and move in the old `saved/imagecache`, `saved/mp3cache`, and `saved/posterr-poster-metadata.db` (so inside the container they land at `config/cache/...`).
+
+### Reaching your media server from Docker
+
+OnNow only needs outbound HTTP(S) to your server — no extra packages in the image.
+
+| Where the server runs | What to enter as **host** in OnNow settings |
+|--|--|
+| Another container on the same Compose network | The service name (e.g. `jellyfin`, `emby`) and that service's port (often `8096`). |
+| Same machine as Docker, outside containers (typical Kodi or bare-metal Plex) | `host.docker.internal` (with `extra_hosts` as shown above on Linux; Docker Desktop often works without it). |
+| Another machine on your LAN | That machine's IP or hostname (the container must be able to route to it). |
+
+**Kodi:** set server type to Kodi, port to Kodi's Web server/JSON-RPC port (often `8080`), and Token only if HTTP auth is enabled (otherwise leave blank).
+
+For very large Jellyfin/Emby libraries, the optional `POSTERR_JELLYFIN_LIBRARY_PAGE_LIMIT` environment variable controls items-per-request during a full library walk (integer, `50`–`500`, default `300`).
+
+**Example: Jellyfin on the same stack** — see [`docker-compose.media-servers.example.yml`](docker-compose.media-servers.example.yml):
+
+```
+docker compose -f docker-compose.yml -f docker-compose.media-servers.example.yml up -d
+```
+
+Then set server type to Jellyfin, host `jellyfin`, port `8096`, and your API key.
+
+### Apple TV pairing over Docker (optional)
+
+The Apple TV sidecar's ongoing polling of an *already-paired* device just needs plain IP reachability and works fine on the default bridge network. Host networking (Linux only) is only needed for the "discover devices on my network" / pairing flow, which needs multicast (mDNS) visibility into your LAN — see [`docker-compose.appletv.example.yml`](docker-compose.appletv.example.yml) for that overlay. If you're not on Linux, pair once from any machine on the same LAN (e.g. with `atvremote pair`), then add the device manually in **Settings → Apple TV** using its identifier/address/credentials.
 
 ---
-## CEC Control script installation **(rPi only)**
- - Install instructions are located [HERE](/scripts/scriptdoco.md)
+
+## CEC control script (Raspberry Pi only)
+
+For displays where the sleep timer should also power off the screen itself (not just blank it): install instructions are at [`scripts/scriptdoco.md`](scripts/scriptdoco.md).
 
 ---
+
 ## Updates
- - **Settings** may show an **update available** notice when OnNow’s remote version check reports a **newer version** than this install (see startup logs / settings UI).
- - **This fork:** after upgrading to a new **app version**, a **red “new features”** banner appears until **Settings → Acknowledge there are new features** (see **New in this fork**).
- - Optional: [Watchtower](https://containrrr.dev/watchtower/) or your stack’s policy for container updates.
+
+After upgrading to a new app version, a red "new features" banner appears on the main display and settings pages until you open **Settings** and acknowledge it. Your choice is stored in `settings.json` and the banner reappears on the next version bump.
+
+For automated container updates, consider [Watchtower](https://containrrr.dev/watchtower/) or your stack's own update policy.
 
 ---
-## Setup
-Get to the settings page in a number of ways:
- - On initial load, you will be prompted.
- - Change the URL to _'http://hostIP:9876/settings'_ (where `hostIP` is the IP number of the machine that OnNow is installed on. Change the port number if you set a different value. 3000 is the default for the binary executables)
- - Clicking on the top banner title of any slide.
- - If on the 'no content' page, then click this text
 
-*The default password is:* **raidisnotabackup**
+## First-time setup
 
-**Now Showing (this fork):** configure the TMDB movie list at **`/settings/now-showing`** (also linked from **Settings**). The public-style schedule view is at **`/now-showing`** (prefix with `BASEPATH` if you use a reverse-proxy base path). For reduced animation/scroll load on low-powered devices, use **`/now-showing?lowPower=1`**. Set a TMDB API key in **Settings → TMDB API** or the **`TMDB_API_KEY`** environment variable.
+Reach the settings page a few ways:
+- You'll be prompted automatically on first load.
+- Go directly to `http://hostIP:9876/settings` (swap in your actual host/port).
+- Click the banner title on any slide.
+- On the "no content" placeholder page, click the prompt text.
 
-**Ads (this fork):** configure slides and timings at **`/settings/ads`**. The dedicated slideshow is at **`/ads`**; use **seconds per ad** for each slide and **seconds on full `/ads` page before returning home** to auto-navigate back to the home poster view when you want a timed lobby loop.
+The default password is `raidisnotabackup`.
 
----
-## Possible Uses
- - Mount a monitor on your wall and showcase your home media setup
- - Use it on a second monitor to keep an eye on what is running
- - Run it on a small screen mounted outside your theater room to show when a movie is in progress
- - Use a reverse proxy, or port-forward, to let your friends see what is playing, available, and coming soon
+- **Now Showing:** configure the TMDB movie list at `/settings/now-showing`. The public schedule view is at `/now-showing` (add `?lowPower=1` to reduce animation on weaker devices).
+- **Ads:** configure slides and timings at `/settings/ads`. The dedicated slideshow is at `/ads`, with independent timers for seconds-per-slide and how long to stay on the full-screen view before auto-returning home.
 
 ---
-## Technical Features
- - Built in Node JS, and packaged as a Docker image. (included image health check)
- - Direct binary files also provided for MacOS, Linux, and Windows.
- - Low resource usage. Memory: 20-35mb, Diskspace: ~75mb, CPU: < 1% (running on a Synology NAS with a Celeron processor)
- - Checks for updates in Now Screening / Playing every 10 seconds (Will not display updates until browser refreshed or all slides cycled through)
- - Browser-based, so can run the app on one machine and a browser on another.
- - Browser connectivity checks and auto-reconnect when the OnNow app restarts. (eg During container updates) 
- - Supports screen resolution heights from 320 pixels to around 3500 pixels. 
- - Supports reverse proxy setup for wildcard dns or alternate base path.
- - Built-in recovery features should the Poster app, or your media server, go offline.
 
- > Please see the [upstream Posterr wiki](https://github.com/petersem/posterr/wiki/Posterr-Configuration) for more information.
+## Possible uses
+
+- Mount a display on the wall to showcase your media library.
+- Run it on a second monitor to keep an eye on what's currently playing.
+- Put a small screen outside a home theater room to show when it's in use.
+- Reverse-proxy or port-forward it so friends/family can see what's playing, available, or coming soon.
 
 ---
-## Troubleshooting
-Should you encounter a problem, the solution may be listed [HERE](https://github.com/petersem/posterr/wiki/Troubleshooting).
+
+## Technical notes
+
+- Built in Node.js, packaged as a Docker image with a built-in health check.
+- Low resource use — roughly 20–35 MB memory, ~75 MB disk, under 1% CPU on a low-power NAS.
+- Polls now-playing status every 10 seconds (already-open browser tabs pick up changes once the current slide cycle finishes or the page refreshes).
+- Browser-based — the app can run on one machine with the display on another.
+- Auto-reconnects the browser if the OnNow process restarts (e.g. during a container update).
+- Supports screen heights from roughly 320px to 3500px, and reverse-proxy setups with a custom base path.
+- Falls back gracefully if the poster app or your media server goes temporarily offline.
+
+Configuration not covered here largely still matches the original project — see the [upstream Posterr wiki](https://github.com/petersem/posterr/wiki/Posterr-Configuration) and [troubleshooting guide](https://github.com/petersem/posterr/wiki/Troubleshooting).
 
 ---
-## Support
- - OnNow support/issues: [github.com/jdub1120/onNow/issues](https://github.com/jdub1120/onNow/issues).
- - Original Posterr community: [https://discord.gg/TcnEkMEf9J](https://discord.gg/TcnEkMEf9J) — please don't ask them for OnNow support.
- - PosterrX community: [https://discord.gg/AEhVjqX4Af](https://discord.gg/AEhVjqX4Af) — please don't ask them for OnNow support either; OnNow is a separate, further fork.
 
----
-### Support OnNow (this fork)
+## Support this project
 
 If OnNow has been useful to you, donations toward continued development are welcome: [paypal.me/jdub1120](https://paypal.me/jdub1120).
 
----
-### Support my efforts and continued development 
-
-> [![](https://github.com/petersem/posterr/blob/master/doco/coffeesmall.gif?raw=true)](https://www.paypal.com/paypalme/thanksmp)
-
-
-Thanks,
-
-Matt Petersen (April 2021)
+This project builds on real work by others — if you'd like to support them too:
+- Matt Petersen (original Posterr author): [paypal.com/paypalme/thanksmp](https://www.paypal.com/paypalme/thanksmp)
 
 ---
-## Technical Details
-OnNow uses the following:
- - Node & Node Express
- - The awesome [Node-Plex-APi](https://github.com/phillipj/node-plex-api)
- - Jquery
- - Bootstrap
- - Font-Awesome
- - Plex (PlexAPI); Jellyfin/Emby (REST); Kodi (JSON-RPC over HTTP)
- - Sonarr (via API)
- - Radarr (via API)
- - Readarr (via API)
- - Posters and artwork from your media server, TVDB and TMDB.
- - Awtrix (via API)
+
+## Built with
+
+- Node.js & Express
+- [node-plex-api](https://github.com/phillipj/node-plex-api)
+- jQuery, Bootstrap, Font Awesome
+- Plex (PlexAPI), Jellyfin/Emby (REST), Kodi (JSON-RPC over HTTP)
+- Sonarr, Radarr, and Readarr (via their APIs)
+- Posters and artwork from your media server, TVDB, and TMDB
+- Awtrix (via API)
+- pyatv, for Apple TV Now Playing
 
 ---
+
 ## Notice
-> OnNow depends on third-party applications and services. Some features may fail temporarily or permanently if those dependencies are unavailable or become incompatible. This software comes with no warranty. Images and themes you download may be copyrighted by their respective owners.
 
----
+OnNow depends on third-party applications and services. Some features may fail temporarily or permanently if those dependencies are unavailable or become incompatible. This software comes with no warranty. Images and themes you download may be copyrighted by their respective owners.
+
 ## License
 
-MIT
-
-**Free Software, Hell Yeah!**
+MIT — see [`LICENSE`](LICENSE).

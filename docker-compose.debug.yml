@@ -4,8 +4,8 @@
 version: "3.8"
 
 services:
-  posterr:
-    image: posterrx
+  onnow:
+    image: jdub1120/onnow:latest
     build:
       context: .
       dockerfile: ./Dockerfile
