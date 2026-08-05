@@ -76,7 +76,7 @@ services:
     image: jdub1120/onnow:latest
     container_name: onnow
     environment:
-      TZ: Australia/Brisbane
+      TZ: America/Chicago
       BASEPATH: ""
     volumes:
       - ./docker/onnow/config:/usr/src/app/config
@@ -96,7 +96,7 @@ docker run -d --name onnow \
 -p 9876:3000 \
 -v ~/docker/onnow/config:/usr/src/app/config \
 -v ~/docker/onnow/custom:/usr/src/app/public/custom \
--e TZ=Australia/Brisbane \
+-e TZ=America/Chicago \
 --add-host=host.docker.internal:host-gateway \
 --restart=always \
 jdub1120/onnow:latest

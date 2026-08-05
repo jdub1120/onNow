@@ -11,7 +11,7 @@ services:
       dockerfile: ./Dockerfile
     environment:
       NODE_ENV: development
-      TZ: "Australia/Brisbane"
+      TZ: "America/Chicago"
       BASEURL: ""
     ports:
       - 3000:3000
