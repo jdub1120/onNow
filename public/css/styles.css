@@ -228,7 +228,7 @@ iframe {
 }
 
 .badge-pill {
-  margin-left: 2px;
+  margin-left: 6px;
 }
 
 .super-res {
@@ -252,7 +252,7 @@ iframe {
   z-index: 900;
 }
 .badge-pill {
-  margin-left: 2px;
+  margin-left: 6px;
 }
 
 .posterArt {
@@ -267,6 +267,21 @@ iframe {
   background-repeat: no-repeat;
   opacity: .5;
   filter: blur(5px);
+}
+
+/* Music: always-on, heavily blurred cover fill (Apple Music-style) instead of the normal
+   dimmed/lightly-blurred backdrop — this class is added regardless of the Show Backdrop
+   setting since a black background reads as broken for a full-bleed square cover. */
+.posterArt.musicBackdrop {
+  opacity: 1;
+  filter: blur(80px);
+}
+
+/* Full-opacity, unblurred backdrop — used for music's artwork-derived color gradient and
+   sports' split team-color gradient (both set inline per-card by MediaCard.js), rather than
+   a blurred copy of an image (there isn't one to blur in either case). */
+.posterArt.solidGradient {
+  opacity: 1;
 }
 
 .poster {
@@ -284,6 +299,213 @@ iframe {
   background-size: contain;
   background-repeat: no-repeat;
   z-index: 1000;
+}
+
+/* Album/track art: rounded cover corners, Apple Music-style. Toggled by Resize() in
+   posters.ejs since only it knows whether the current card is square (ar === 1) art. */
+.poster.squareArt {
+  border-radius: 20px;
+  /* border-radius only rounds the box's own background/border — without this, child elements
+     positioned inside it (e.g. the progress-bar container) aren't clipped to that shape and
+     can poke a small square notch out past the curve at the corners. */
+  overflow: hidden;
+}
+
+/* Apple Music-style caption below album/track art — positioned and sized by Resize() in
+   posters.ejs, since it depends on the artwork's actual rendered (JS-computed) geometry. */
+.musicInfo {
+  position: fixed;
+  z-index: 1001;
+  text-align: center;
+  pointer-events: none;
+}
+.musicTitle {
+  font-weight: 600;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35em;
+}
+.musicTitleText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.musicArtist {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: .08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.musicDevicePill {
+  margin-top: .6em;
+}
+.musicDevicePill .badge {
+  background-color: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+  padding: .5em 1em;
+}
+
+/* Apple Music-style "now playing" equalizer bars, shown next to the music card's title.
+   Sized in em so it tracks .musicTitle's own (JS-computed) font-size automatically. Bars
+   freeze via the .paused modifier rather than being removed, matching how Apple's own
+   Now Playing UI keeps the icon in place but stops the motion when playback pauses. */
+.eqIcon {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: .12em;
+  height: .85em;
+  flex: 0 0 auto;
+}
+.eqIcon span {
+  display: block;
+  width: .16em;
+  background: currentColor;
+  border-radius: 1px;
+  animation: eqBounce 0.9s ease-in-out infinite;
+}
+.eqIcon span:nth-child(1) { animation-delay: -0.6s; }
+.eqIcon span:nth-child(2) { animation-delay: -0.3s; }
+.eqIcon span:nth-child(3) { animation-delay: 0s; }
+.eqIcon.paused span {
+  animation-play-state: paused;
+  height: 30% !important;
+}
+@keyframes eqBounce {
+  0%, 100% { height: 25%; }
+  50% { height: 100%; }
+}
+
+/* Live sports matchup card — two team logos floating directly on a diagonal team-color
+   gradient (no boxed panel), one higher/one lower, with a caption below. Positioned
+   independently by Resize() in posters.ejs (each logo has its own id, not a flex row),
+   grouped-and-centered on screen the same way as the music layout. */
+.sportsLogo {
+  position: fixed;
+}
+.sportsLogoImg {
+  position: absolute;
+  inset: 0;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  /* Follows the transparent logo's actual silhouette — a box-shadow would draw a shadow
+     around the square div instead, which looks wrong for a non-square team mark. */
+  filter: drop-shadow(0 .1em .5em rgba(0, 0, 0, 0.35));
+}
+.sportsVs {
+  position: fixed;
+  color: #ffffff;
+  font-weight: 300;
+  text-align: center;
+  white-space: nowrap;
+}
+.sportsVs.score {
+  font-weight: 600;
+}
+.sportsGameState {
+  position: fixed;
+  text-align: center;
+  white-space: nowrap;
+}
+.sportsBases {
+  position: fixed;
+  text-align: center;
+}
+.sportsBasesDiamond {
+  position: relative;
+  width: 1.5em;
+  height: 1em;
+  margin: 0 auto;
+}
+.sportsBase {
+  position: absolute;
+  width: .54em;
+  height: .54em;
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: rotate(45deg);
+}
+.sportsBase.filled {
+  background-color: rgba(255, 255, 255, 0.95);
+}
+.sportsBase.second {
+  top: 0;
+  left: 50%;
+  margin-left: -.27em;
+}
+.sportsBase.first {
+  bottom: 0;
+  right: 0;
+  margin-bottom: -.08em;
+}
+.sportsBase.third {
+  bottom: 0;
+  left: 0;
+  margin-bottom: -.08em;
+}
+.sportsInningRow {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+.sportsOutsRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3em;
+  margin-top: .6em;
+}
+.sportsOutDot {
+  width: .32em;
+  height: .32em;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+.sportsOutDot.filled {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+.sportsInfo {
+  position: fixed;
+  z-index: 1001;
+  text-align: center;
+  pointer-events: none;
+}
+.sportsLiveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: .45em;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  letter-spacing: .1em;
+  margin-bottom: .6em;
+}
+.sportsLiveDot {
+  display: inline-block;
+  width: .5em;
+  height: .5em;
+  border-radius: 50%;
+  background-color: #ff3b30;
+}
+.sportsMatchupTitle {
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sportsNetwork {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: .25em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Optional cast / director / author / artist portraits (display poster settings) */

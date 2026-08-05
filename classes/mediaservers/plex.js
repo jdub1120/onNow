@@ -193,7 +193,7 @@ class Plex {
             let guid = md.key.split("/")[3];
             fileName = guid + result[3] + ".jpg";
             prefix = "http://";
-            if (this.https) prefix = "https://";
+            if (this.https === true || this.https === "true") prefix = "https://";
             let thumb = "";
 
             thumb = guid;
@@ -220,7 +220,7 @@ class Plex {
             if (md.grandparentArt !== undefined && hasArt == "true") {
               fileName = guid + result[3] + "-art.jpg";
               prefix = "http://";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -234,7 +234,7 @@ class Plex {
             } else if (md.parentArt !== undefined && hasArt == "true") {
               fileName = guid + result[3] + "-art.jpg";
               prefix = "http://";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -248,7 +248,7 @@ class Plex {
             } else if (md.art !== undefined && hasArt == "true") {
               fileName = guid + result[3] + "-art.jpg";
               prefix = "http://";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -295,7 +295,7 @@ class Plex {
               // download mp3 file to local server
               fileName = mediaId + ".mp3";
               prefix = "http://";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -317,7 +317,7 @@ class Plex {
             // download poster image to local server
             fileName = mediaId + ".jpg";
             prefix = "http://";
-            if (this.https) prefix = "https://";
+            if (this.https === true || this.https === "true") prefix = "https://";
             url =
               prefix +
               this.plexIP +
@@ -334,7 +334,7 @@ class Plex {
             // check art exists
             if (md.art !== undefined && hasArt == "true") {
               fileName = mediaId + "-art.jpg";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -351,7 +351,7 @@ class Plex {
             medCard.posterAR = 1.5;
 
             medCard.title = md.grandparentTitle;
-            medCard.genre = md.genre;
+            medCard.genre = util.formatGenresFromPlexGenre(md.Genre);
 
             // work out where transcode data is in the returned media item
             let mediaPart = 0;
@@ -397,9 +397,9 @@ class Plex {
           case "movie":
             // cache movie poster
             let movieFileName = md.ratingKey + ".jpg";
-            medCard.genre = md.Genre;
+            medCard.genre = util.formatGenresFromPlexGenre(md.Genre);
             let moviePlexPrefix = "http://";
-            if (this.https) moviePlexPrefix = "https://";
+            if (this.https === true || this.https === "true") moviePlexPrefix = "https://";
             let movieUrl =
               moviePlexPrefix +
               this.plexIP +
@@ -416,7 +416,7 @@ class Plex {
             // check art exists
             if (md.art !== undefined && hasArt == "true") {
               movieFileName = md.ratingKey + "-art.jpg";
-              if (this.https) moviePlexPrefix = "https://";
+              if (this.https === true || this.https === "true") moviePlexPrefix = "https://";
               movieUrl =
                 moviePlexPrefix +
                 this.plexIP +
@@ -439,7 +439,7 @@ class Plex {
                 // download mp3 file to local server
                 fileName = md.ratingKey + ".mp3";
               prefix = "http://";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -559,7 +559,7 @@ class Plex {
         medCard.decision = transcode;
 
         //medCard.year = md.year;
-        medCard.genre = await util.emptyIfNull(md.Genre);
+        medCard.genre = util.formatGenresFromPlexGenre(md.Genre);
         medCard.tags = extractPlexTags(md);
         medCard.summary = md.summary;
         medCard.cast = util.formatCastFromPlexRole(md.Role);
@@ -889,7 +889,10 @@ class Plex {
           if (
             rawApiId &&
             !mustRetry &&
-            posterMetadataDb.shouldSkipSyncItem("plex", rawApiId, sourceUpdatedAt)
+            posterMetadataDb.shouldSkipSyncItem("plex", rawApiId, sourceUpdatedAt, {
+              background: pullBackground,
+              logo: pullLogo,
+            })
           ) {
             if (sp) {
               sp.processed = Math.min(sp.total || 0, (sp.processed || 0) + 1);
@@ -920,7 +923,7 @@ class Plex {
               // download mp3 from plex tv theme server
               let fileName = mediaId + ".mp3";
               let prefix = "http://";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               let url =
                 prefix +
                 this.plexIP +
@@ -942,7 +945,7 @@ class Plex {
             let fileName = mediaId + ".jpg";
 
             let prefix = "http://";
-            if (this.https) prefix = "https://";
+            if (this.https === true || this.https === "true") prefix = "https://";
             let url =
               prefix +
               this.plexIP +
@@ -967,7 +970,7 @@ class Plex {
             let showHasBackdrop = false;
             if (md.art !== undefined && pullBackground) {
               fileName = mediaId + "-art.jpg";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -984,7 +987,7 @@ class Plex {
             let showServerBannerOk = false;
             if (pullBackground && md.banner) {
               fileName = mediaId + "-banner.jpg";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               url =
                 prefix +
                 this.plexIP +
@@ -1030,7 +1033,7 @@ class Plex {
             //     console.log(md);
             let movieFileName = md.ratingKey + ".jpg";
             let moviePlexPrefix = "http://";
-            if (this.https) moviePlexPrefix = "https://";
+            if (this.https === true || this.https === "true") moviePlexPrefix = "https://";
             let movieUrl =
               moviePlexPrefix +
               this.plexIP +
@@ -1054,7 +1057,7 @@ class Plex {
             let movieHasBackdrop = false;
             if (md.art !== undefined && pullBackground) {
               movieFileName = md.ratingKey + "-art.jpg";
-              if (this.https) moviePlexPrefix = "https://";
+              if (this.https === true || this.https === "true") moviePlexPrefix = "https://";
               movieUrl =
                 moviePlexPrefix +
                 this.plexIP +
@@ -1071,7 +1074,7 @@ class Plex {
             let movieServerBannerOk = false;
             if (pullBackground && md.banner) {
               movieFileName = md.ratingKey + "-banner.jpg";
-              if (this.https) moviePlexPrefix = "https://";
+              if (this.https === true || this.https === "true") moviePlexPrefix = "https://";
               movieUrl =
                 moviePlexPrefix +
                 this.plexIP +
@@ -1118,7 +1121,7 @@ class Plex {
                 // download mp3 file to local server
                 themeFile = md.ratingKey + ".mp3";
               let prefix = "http://";
-              if (this.https) prefix = "https://";
+              if (this.https === true || this.https === "true") prefix = "https://";
               let url =
                 prefix +
                 this.plexIP +
@@ -1164,7 +1167,7 @@ class Plex {
             {
               let albPoster = md.ratingKey + ".jpg";
               let albPre = "http://";
-              if (this.https) albPre = "https://";
+              if (this.https === true || this.https === "true") albPre = "https://";
               let albImgUrl =
                 albPre +
                 this.plexIP +
@@ -1325,7 +1328,7 @@ class Plex {
         medCard.ratingColour = ratingColour;
 
         medCard.year = md.year;
-        medCard.genre = await util.emptyIfNull(md.Genre);
+        medCard.genre = util.formatGenresFromPlexGenre(md.Genre);
         medCard.tags = extractPlexTags(md);
         medCard.summary = md.summary;
         medCard.cast = util.formatCastFromPlexRole(md.Role);

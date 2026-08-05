@@ -2,7 +2,7 @@
 <html lang="en">
 <!--
 ***********************************************************
-* PosterX - Your home media display                       *
+* OnNow - Your home media display                       *
 * Developed by Matt Petersen - Brisbane, Australia        *
 ***********************************************************
 -->
@@ -28,7 +28,7 @@
   <!-- <link rel="stylesheet" href="<%=baseUrl%>/css/bootstrap-colourpicker.min.css"> -->
   <!-- <script src="/js/script.js"></script> -->
 
-  <title>PosterX - Settings</title>
+  <title>OnNow - Settings</title>
   <link rel="shortcut icon" type="image/png" href="<%=baseUrl%>/favicons/favicon.ico" />
 </head>
 
@@ -43,14 +43,14 @@
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb" class="main-breadcrumb">
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="<%=baseUrl%>/">PosterX</a></li>
-  <li class="breadcrumb-item active" aria-current="page">PosterX Settings</li>
+        <li class="breadcrumb-item"><a href="<%=baseUrl%>/">OnNow</a></li>
+  <li class="breadcrumb-item active" aria-current="page">OnNow Settings</li>
   </ol>
   </nav>
   <% if (typeof showNewFeaturesBanner !== 'undefined' && showNewFeaturesBanner && user && user.valid) { %>
   <div class="card border-danger mb-3">
     <div class="card-body">
-      <p class="mb-2">PosterX <strong>v<%= typeof appVersion !== 'undefined' ? appVersion : '' %></strong> includes changes you have not acknowledged yet. The red banner appears on the main display and other pages until you confirm below.</p>
+      <p class="mb-2">OnNow <strong>v<%= typeof appVersion !== 'undefined' ? appVersion : '' %></strong> includes changes you have not acknowledged yet. The red banner appears on the main display and other pages until you confirm below.</p>
       <form method="post" action="<%= baseUrl %>/settings/new-features-acknowledge">
         <button type="submit" class="btn btn-danger">Acknowledge there are new features</button>
       </form>
@@ -58,7 +58,7 @@
   </div>
   <% } %>
   <%if(typeof formData !== 'undefined' && formData.saved == true) {%><script language='javascript'>
-    alert("PosterX Settings Saved. Please allow a few seconds for PosterX to restart.");
+    alert("OnNow Settings Saved. Please allow a few seconds for OnNow to restart.");
   </script><%}%>
   <%if(typeof cacheClearNotice !== 'undefined' && cacheClearNotice && cacheClearNotice.text) {%><script>
     alert(<%- JSON.stringify(cacheClearNotice.text) %>);
@@ -78,6 +78,9 @@
               </a>
               <a href="<%=baseUrl%>/settings/now-showing" class="nav-item nav-link has-icon nav-link-faded">
                 <i class="fal fa-film"></i><span class="menu">Now Showing</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/appletv" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-tv"></i><span class="menu">Apple TV</span>
               </a>
               <a href="<%=baseUrl%>/settings/ads" class="nav-item nav-link has-icon nav-link-faded">
                 <i class="fal fa-bullhorn"></i><span class="menu">Ads</span>
@@ -128,6 +131,9 @@
             <a href="<%=baseUrl%>/settings/now-showing" class="nav-link has-icon"><i class="fal fa-film"></i></a>
           </li>
           <li class="nav-item">
+            <a href="<%=baseUrl%>/settings/appletv" class="nav-link has-icon"><i class="fal fa-tv"></i></a>
+          </li>
+          <li class="nav-item">
             <a href="<%=baseUrl%>/settings/ads" class="nav-link has-icon"><i class="fal fa-bullhorn"></i></a>
           </li>
           <li class="nav-item">
@@ -159,13 +165,13 @@
         </ul>
 
       </div>
-      <% if(latestVersion !== undefined && latestVersion !== "" && latestVersion !== version.toString() && (typeof errors == 'undefined' || errors.length == 0) && updateAvailable == true){%>
-      <p id="rcorners-u"><span id="message">Update</span><br>Please upgrade to PosterX v<%=latestVersion%></br>
+      <% if(latestVersion !== undefined && latestVersion !== "" && latestVersion !== version.toString() && (typeof errors == 'undefined' || errors == null || errors.length == 0) && updateAvailable == true){%>
+      <p id="rcorners-u"><span id="message">Update</span><br>Please upgrade to OnNow v<%=latestVersion%></br>
       <%}%>
 
                   <!-- show validation errors -->
                   <% 
-              if(typeof errors !== 'undefined' && errors.length > 0){
+              if(typeof errors !== 'undefined' && errors !== null && errors.length > 0){
                 // display validation errors
                 %><p id="rcorners-e"><span id="message">Validation errors</span><br><%
                 errors.forEach(function(e) { %>
@@ -194,7 +200,7 @@
               <div id="collapseOne" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingOne">
                 <div class="panel-body">
 
-              <form method="POST" action="<%=baseUrl%>/settings">
+              <form method="POST" action="<%=baseUrl%>/settings" id="settingsForm">
                   <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" class="form-control" id="password" name="password"
@@ -252,6 +258,15 @@
                       value="true" <% if(typeof formData !== 'undefined' && errors){%><%=(formData.showAlbumArtist == 'true' || formData.showAlbumArtist === true) ? 'checked' : '' %><%}else{%><%=(settings.showAlbumArtist == 'true') ? 'checked' : '' %><%}%>>
                     <label class="custom-control-label" for="showAlbumArtist">Display artist — coming soon ™</label>
                     <small class="form-text text-muted">Shows artist names on music album and track cards (Plex, Jellyfin, Emby, Kodi), on-demand albums, and Lidarr coming-soon albums when available.</small>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="custom-control custom-control-nolabel custom-switch ml-auto">
+                    <input type="checkbox" class="custom-control-input" name="showMovieTagline" id="showMovieTagline"
+                      value="true" <% if(typeof formData !== 'undefined' && errors){%><%=(formData.showMovieTagline == 'true' || formData.showMovieTagline === true) ? 'checked' : '' %><%}else{%><%=(settings.showMovieTagline == 'true') ? 'checked' : '' %><%}%>>
+                    <label class="custom-control-label" for="showMovieTagline">Show movie taglines</label>
+                    <small class="form-text text-muted">Shows the scrolling tagline text (e.g. "In space, no one can hear you scream") on movie cards.</small>
                   </div>
                 </div>
 
@@ -381,7 +396,7 @@
                     <input type="checkbox" class="custom-control-input" name="theaterRoomMode" id="theaterRoomMode"
                      value="true" <% if(typeof formData !== 'undefined' && errors){%><%=formData.theaterRoomMode ? 'checked' : '' %><%}else{%><%=(settings.theaterRoomMode == 'true') ? 'checked' : '' %><%}%>>
                     <label class="custom-control-label" for="theaterRoomMode">Theatre room mode</label>
-                    <small id="theaterRoomModeHelp" class="form-text text-muted">PosterX sleeps whenever anything playing (Requires 'Now Playing' enabled)</small>
+                    <small id="theaterRoomModeHelp" class="form-text text-muted">OnNow sleeps whenever anything playing (Requires 'Now Playing' enabled)</small>
                   </div>
                 </div>
                 
@@ -414,14 +429,14 @@
                   <label for="sleepStart">Sleep start time</label>
                   <input type="text" class="form-control" id="sleepStart" name="sleepStart" aria-describedby="sleepStart"
                     placeholder="23:00 (military time)" value="<% if(typeof formData !== 'undefined' && errors){%><%=formData.sleepStart%>"<%}else{%><%=settings.sleepStart%>"<%}%>>
-                  <small id="sleepStartHelp" class="form-text text-muted">The time to put PosterX to sleep</small>
+                  <small id="sleepStartHelp" class="form-text text-muted">The time to put OnNow to sleep</small>
                 </div>
 
                 <div class="form-group">
                   <label for="sleepEnd">Sleep end time</label>
                   <input type="text" class="form-control" id="sleepEnd" name="sleepEnd" aria-describedby="sleepEnd"
                     placeholder="07:00 (military time)" value="<% if(typeof formData !== 'undefined' && errors){%><%=formData.sleepEnd%>"<%}else{%><%=settings.sleepEnd%>"<%}%>>
-                  <small id="sleepEndHelp" class="form-text text-muted">The time to wake PosterX up</small>
+                  <small id="sleepEndHelp" class="form-text text-muted">The time to wake OnNow up</small>
                 </div>
 
                 </div>
@@ -483,28 +498,41 @@
                   placeholder="Leave blank for default" value="<% if(typeof formData !== 'undefined' && errors){%><%=formData.bgColour%>"<%}else{%><%=settings.bgColour%>"<%}%>>
                 <small id="bgColourHelp" class="form-text text-muted">&nbsp;&nbsp;Set background colour (Not appied if background art enabled)</small>
               </div>
-                &nbsp;&nbsp;<button type="button" class="btn btn-info" onclick="resetColours();">Reset colours</button> 
+                <div class="form-group">
+                &nbsp;&nbsp;<input type="color" value="#007bff" id="colourWellProgress">
+                <label for="progressColour">&nbsp;&nbsp;Progress bar </label>
+                &nbsp;<span id="progressHex" name="progressHex"></span>
+                <input type="text" class="form-control" id="progressColour" style="display: none;" name="progressColour" aria-describedby="progressColourHelp"
+                  placeholder="Leave blank for default" value="<% if(typeof formData !== 'undefined' && errors){%><%=formData.progressColour%>"<%}else{%><%=settings.progressColour%>"<%}%>>
+                <small id="progressColourHelp" class="form-text text-muted">&nbsp;&nbsp;Set the colour of the now-playing progress bar</small>
+              </div>
+                &nbsp;&nbsp;<button type="button" class="btn btn-info" onclick="resetColours();">Reset colours</button>
               </br></br>
   
                   <script lang=javascript>
                     var colourWellTitle;
                     var colourWellFoot;
                     var colourWellBg;
+                    var colourWellProgress;
                     var defaultTitlecolour = "<% if(typeof formData !== 'undefined' && errors){%><%=formData.titleColour%>"<%}else{%><%=settings.titleColour%>"<%}%>;
                     var defaultFootcolour = "<% if(typeof formData !== 'undefined' && errors){%><%=formData.footColour%>"<%}else{%><%=settings.footColour%>"<%}%>;
                     var defaultBgcolour = "<% if(typeof formData !== 'undefined' && errors){%><%=formData.bgColour%>"<%}else{%><%=settings.bgColour%>"<%}%>;
-  
+                    var defaultProgresscolour = "<% if(typeof formData !== 'undefined' && errors){%><%=formData.progressColour%>"<%}else{%><%=settings.progressColour%>"<%}%>;
+
                     // set defaults if nothing saved
                     if(defaultTitlecolour == "") {defaultTitlecolour = "#FAFAD2"};
                     if(defaultFootcolour == "") {defaultFootcolour = "#FAFAD2"};
                     if(defaultBgcolour == "") {defaultBgcolour = "#000000"};
+                    if(defaultProgresscolour == "") {defaultProgresscolour = "#007bff"};
                     titleCol = document.querySelector("#titleColour");
                     titleCol.value = defaultTitlecolour;
                     footCol = document.querySelector("#footColour");
                     footCol.value = defaultFootcolour;
                     bgCol = document.querySelector("#bgColour");
                     bgCol.value = defaultBgcolour;
-                    
+                    progressCol = document.querySelector("#progressColour");
+                    progressCol.value = defaultProgresscolour;
+
                     window.addEventListener("load", startup, false);
   
                     function startup() {
@@ -530,13 +558,20 @@
                     colourWellBg.value = defaultBgcolour;
                     colourWellBg.addEventListener("input", updateFirstBg, false);
                     colourWellBg.addEventListener("change", updateAllBg, false);
-  
+
+                    colourWellProgress = document.querySelector("#colourWellProgress");
+                    colourWellProgress.value = defaultProgresscolour;
+                    colourWellProgress.addEventListener("input", updateFirstProgress, false);
+                    colourWellProgress.addEventListener("change", updateAllProgress, false);
+
                     var th = document.getElementById("titleHex");
-                    th.innerText = "(" + defaultTitlecolour + ")";  
+                    th.innerText = "(" + defaultTitlecolour + ")";
                     var fh = document.getElementById("footHex");
-                    fh.innerText = "(" + defaultFootcolour + ")";  
+                    fh.innerText = "(" + defaultFootcolour + ")";
                     var bh = document.getElementById("bgHex");
-                    bh.innerText = "(" + defaultBgcolour + ")";  
+                    bh.innerText = "(" + defaultBgcolour + ")";
+                    var ph = document.getElementById("progressHex");
+                    ph.innerText = "(" + defaultProgresscolour + ")";
                   }
   
                   function resetColours() {
@@ -546,21 +581,28 @@
                     colourWellFoot.value = "#FAFAD2";
                     colourWellBg = document.querySelector("#colourWellBg");
                     colourWellBg.value = "#000000";
-  
+                    colourWellProgress = document.querySelector("#colourWellProgress");
+                    colourWellProgress.value = "#007bff";
+
                     var tc = document.getElementById("titleColour");
                     tc.value = "#FAFAD2";
                     var th = document.getElementById("titleHex");
-                    th.innerText = "(#FAFAD2)"; 
-  
+                    th.innerText = "(#FAFAD2)";
+
                     var fc = document.getElementById("footColour");
                     fc.value = "#FAFAD2"
                     var fh = document.getElementById("footHex");
-                    fh.innerText = "(#FAFAD2)";  
-  
+                    fh.innerText = "(#FAFAD2)";
+
                     var bc = document.getElementById("bgColour");
                     bc.value = "#000000";
                     var bh = document.getElementById("bgHex");
-                    bh.innerText = "(#000000)";                
+                    bh.innerText = "(#000000)";
+
+                    var pc = document.getElementById("progressColour");
+                    pc.value = "#007bff";
+                    var ph = document.getElementById("progressHex");
+                    ph.innerText = "(#007bff)";
                   }
   
                   function updateFirst(event) {
@@ -581,9 +623,16 @@
                     var bc = document.getElementById("bgColour");
                     bc.value = event.target.value;
                     var bh = document.getElementById("bgHex");
-                    bh.innerText = "(" + event.target.value + ")";                
+                    bh.innerText = "(" + event.target.value + ")";
                   }
-  
+
+                  function updateFirstProgress(event) {
+                    var pc = document.getElementById("progressColour");
+                    pc.value = event.target.value;
+                    var ph = document.getElementById("progressHex");
+                    ph.innerText = "(" + event.target.value + ")";
+                  }
+
                   function updateAll(event) {
                     var tc = document.getElementById("titleColour");
                     tc.value = event.target.value;
@@ -602,9 +651,16 @@
                     var bc = document.getElementById("bgColour");
                     bc.value = event.target.value;
                     var bh = document.getElementById("bgHex");
-                    bh.innerText = "(" + event.target.value + ")";                
+                    bh.innerText = "(" + event.target.value + ")";
                   };
-  
+
+                  function updateAllProgress(event) {
+                    var pc = document.getElementById("progressColour");
+                    pc.value = event.target.value;
+                    var ph = document.getElementById("progressHex");
+                    ph.innerText = "(" + event.target.value + ")";
+                  };
+
                 </script>
   
                     <div class="form-group">
@@ -697,11 +753,101 @@
                       placeholder="Leave blank for default" value="<% if(typeof formData !== 'undefined' && errors){%><%=formData.trivia%>"<%}else{%><%=settings.trivia%>"<%}%>>
                     <small id="triviaHelp" class="form-text text-muted">Alternate text for 'Trivia Questions'</small>
                   </div>
+
+                  <h6>Hide Banners</h6>
+                <div class="form-group">
+                    <div class="custom-control custom-control-nolabel custom-switch ml-auto">
+                      <input type="checkbox" class="custom-control-input" name="odHideTitle" id="odHideTitle"
+                        value="true" <% if(typeof formData !== 'undefined' && errors){%><%=formData.odHideTitle ? 'checked' : '' %><%}else{%><%=(settings.odHideTitle == 'true') ? 'checked' : '' %><%}%>>
+                      <label class="custom-control-label" for="odHideTitle">Hide Title</label>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <div class="custom-control custom-control-nolabel custom-switch ml-auto">
+                      <input type="checkbox" class="custom-control-input" name="odHideFooter" id="odHideFooter"
+                        value="true" <% if(typeof formData !== 'undefined' && errors){%><%=formData.odHideFooter ? 'checked' : '' %><%}else{%><%=(settings.odHideFooter == 'true') ? 'checked' : '' %><%}%>>
+                      <label class="custom-control-label" for="odHideFooter">Hide Footer</label>
+                    </div>
+                  </div>
+
+                  <div id="footerPillsSection">
+                  <h6 class="mt-3">Footer Pills</h6>
+                  <p class="text-muted small mb-2">Choose which metadata pills appear in the footer (when Hide Footer above is off). Unchecking a pill here hides it everywhere &mdash; on-demand, Now Playing, and Now Screening.</p>
+                  <p class="small mb-2">
+                    <a href="#" id="pillSelectAll">Select All</a>
+                    &nbsp;|&nbsp;
+                    <a href="#" id="pillSelectNone">Select None</a>
+                  </p>
+                  <% var _pillGroups = [
+                    { label: "Content Info", items: [
+                      ["showPillYear", "Year"],
+                      ["showPillGenre", "Genre"],
+                      ["showPillContentRating", "Content Rating"],
+                      ["showPillRating", "Audience/Critic Rating"],
+                      ["showPillRuntime", "Runtime"],
+                      ["showPillPageCount", "Page Count"],
+                      ["showPillEpisode", "Episode Name"],
+                      ["showPillLeadCast", "Lead Cast (on-demand)"],
+                    ] },
+                    { label: "Technical", items: [
+                      ["showPillResolution", "Resolution/Codec"],
+                      ["showPillAudioCodec", "Audio Codec"],
+                      ["showPill3D", "3D Badge"],
+                    ] },
+                    { label: "Source", items: [
+                      ["showPillNetwork", "Network"],
+                      ["showPillStudio", "Studio"],
+                      ["showPillLibrary", "Library Name"],
+                    ] },
+                    { label: "Now Playing Session", items: [
+                      ["showPillEndTime", "Now Playing End Time"],
+                      ["showPillUser", "Plex User"],
+                      ["showPillDevice", "Player Device"],
+                      ["showPillIP", "Player IP"],
+                    ] },
+                  ]; %>
+                  <% _pillGroups.forEach(function(grp) { %>
+                  <div class="text-muted text-uppercase small font-weight-bold mt-2 mb-1"><%=grp.label%></div>
+                  <div class="row">
+                    <% grp.items.forEach(function(pt) { var pName = pt[0], pLabel = pt[1]; %>
+                    <div class="col-md-4">
+                      <div class="form-group">
+                        <div class="custom-control custom-control-nolabel custom-switch ml-auto">
+                          <input type="checkbox" class="custom-control-input pillToggle" name="<%=pName%>" id="<%=pName%>"
+                            value="true" <% if(typeof formData !== 'undefined' && errors){%><%=formData[pName] ? 'checked' : '' %><%}else{%><%=(settings[pName] == 'true' || typeof settings[pName] === 'undefined') ? 'checked' : '' %><%}%>>
+                          <label class="custom-control-label" for="<%=pName%>"><%=pLabel%></label>
+                        </div>
+                      </div>
+                    </div>
+                    <% }); %>
+                  </div>
+                  <% }); %>
+                  </div>
+                  <script>
+                    document.getElementById('pillSelectAll').addEventListener('click', function (e) {
+                      e.preventDefault();
+                      document.querySelectorAll('.pillToggle').forEach(function (cb) { cb.checked = true; });
+                    });
+                    document.getElementById('pillSelectNone').addEventListener('click', function (e) {
+                      e.preventDefault();
+                      document.querySelectorAll('.pillToggle').forEach(function (cb) { cb.checked = false; });
+                    });
+                    (function () {
+                      var hideFooterBox = document.getElementById('odHideFooter');
+                      var pillsSection = document.getElementById('footerPillsSection');
+                      function syncPillsVisibility() {
+                        pillsSection.style.display = hideFooterBox.checked ? 'none' : '';
+                      }
+                      hideFooterBox.addEventListener('change', syncPillsVisibility);
+                      syncPillsVisibility();
+                    })();
+                  </script>
                 </div>
               </div>
             </div>
             <hr>
-            
+
             <div class="panel panel-default">
               <div class="panel-heading" role="tab" id="headingThree">
                 <h4 class="panel-title">
@@ -922,7 +1068,7 @@
                 <div class="custom-control custom-control-nolabel custom-switch ml-auto">
                   <input type="checkbox" class="custom-control-input" name="pinNSSwitch" id="pinNSSwitch" 
                     value="true" <% if(typeof formData !== 'undefined' && errors){%><%=formData.pinNSSwitch ? 'checked' : '' %><%}else{%><%=(settings.pinNS == 'true') ? 'checked' : '' %><%}%>>
-                    <label class="custom-control-label" for="pinNSSwitch">Pin Now Playing (Media Server)</label>
+                    <label class="custom-control-label" for="pinNSSwitch">Pin Now Playing</label>
                   <small id="randomThemeHelp" class="form-text text-muted">If something is playing, then hide on-demand and coming soon</small>
                 </div>
               </div>
@@ -994,6 +1140,7 @@
                 </div>
               </div>
             </div>
+            <hr>
 
             <div class="panel panel-default">
               <div class="panel-heading" role="tab" id="headingSix">
@@ -1060,28 +1207,11 @@
                   <small id="contentRatings" class="form-text text-muted">Do not show titles with these official ratings (metadata from your server). Ignored if recently added is non-zero.</small>
                 </div>
 
-                <h6>Hide Banners</h6>
-              <div class="form-group">
-                  <div class="custom-control custom-control-nolabel custom-switch ml-auto">
-                    <input type="checkbox" class="custom-control-input" name="odHideTitle" id="odHideTitle" 
-                      value="true" <% if(typeof formData !== 'undefined' && errors){%><%=formData.odHideTitle ? 'checked' : '' %><%}else{%><%=(settings.odHideTitle == 'true') ? 'checked' : '' %><%}%>>
-                    <label class="custom-control-label" for="odHideTitle">Hide Title</label>
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <div class="custom-control custom-control-nolabel custom-switch ml-auto">
-                    <input type="checkbox" class="custom-control-input" name="odHideFooter" id="odHideFooter" 
-                      value="true" <% if(typeof formData !== 'undefined' && errors){%><%=formData.odHideFooter ? 'checked' : '' %><%}else{%><%=(settings.odHideFooter == 'true') ? 'checked' : '' %><%}%>>
-                    <label class="custom-control-label" for="odHideFooter">Hide Footer</label>
-                  </div>
-                </div>
-
                 </div>
               </div>
-            </div>  
+            </div>
             <hr>
-            
+
             <div class="panel panel-default">
               <div class="panel-heading" role="tab" id="headingSeven">
                 <h4 class="panel-title">
@@ -1464,13 +1594,16 @@
 
                   <!-- About -->
                   <div class="tab-pane" id="about">
-                    <h5>ABOUT POSTERX <span class="text-muted font-weight-normal">v<%= version %></span></h5>
+                    <h5>ABOUT ONNOW <span class="text-muted font-weight-normal">v<%= version %></span></h5>
                     <div class="alert alert-secondary mb-3" role="note">
-                      <p class="mb-1"><strong>PosterX</strong> is a fork of <a href="https://github.com/petersem/posterr" target="_blank" rel="noopener noreferrer">Posterr</a> (Matt Petersen). This build is maintained by <strong>binarygeek119</strong>.</p>
-                      <p class="mb-1 small"><a href="https://github.com/binarygeek119/posterrX" target="_blank" rel="noopener noreferrer">GitHub — binarygeek119/posterrX</a></p>
-                      <p class="mb-1 small">Sister project: <a href="https://github.com/binarygeek119/ubuntudisplayos" target="_blank" rel="noopener noreferrer">binarygeek119/ubuntudisplayos</a> — Ubuntu-based multi-display kiosk hosts that pair well with PosterX.</p>
+                      <p class="mb-1"><strong>OnNow</strong> is a fork of <a href="https://github.com/binarygeek119/posterrX" target="_blank" rel="noopener noreferrer">PosterrX</a> (binarygeek119), itself a fork of <a href="https://github.com/petersem/posterr" target="_blank" rel="noopener noreferrer">Posterr</a> (Matt Petersen). This build is maintained independently by <strong>jdub1120</strong>.</p>
+                      <p class="mb-1 small"><a href="https://github.com/binarygeek119/posterrX" target="_blank" rel="noopener noreferrer">Upstream GitHub — binarygeek119/posterrX</a></p>
+                      <p class="mb-1 small">Sister project: <a href="https://github.com/binarygeek119/ubuntudisplayos" target="_blank" rel="noopener noreferrer">binarygeek119/ubuntudisplayos</a> — Ubuntu-based multi-display kiosk hosts that pair well with OnNow.</p>
                       <p class="mb-0 small text-muted">This fork is purely AI-modified.</p>
                     </div>
+                    <p><b>Support OnNow (this fork).</b></br> <a href="https://paypal.me/jdub1120"
+                        target="_blank" rel="noopener noreferrer">If OnNow has been useful to you, donations
+                        toward continued development are welcome.</a></p>
                     <p><b>Support my efforts and continued development.</b></br> <a
                         href="https://www.paypal.com/paypalme/thanksmp" target="_blank">Buy me a coffee to say
                         thanks.</a></p>
@@ -1496,21 +1629,21 @@
                     <label class="d-block" style="text-decoration: underline;">Project Details</label>
                     <p>
                       <ul>
-                        <li>PosterX maintainer Discord (this fork): <a href="https://discord.gg/AEhVjqX4Af"
-                            target="_blank" rel="noopener noreferrer">https://discord.gg/AEhVjqX4Af</a></li>
+                        <li>OnNow does not yet have its own dedicated support channel.</li>
                         <li>Original Posterr community Discord: <a href="https://discord.gg/TcnEkMEf9J"
-                            target="_blank" rel="noopener noreferrer">https://discord.gg/TcnEkMEf9J</a></li>
-                        <li>Do not ask the original Posterr developer for support when using PosterX.</li>
-                        <li>For fork support, use GitHub: <a href="https://github.com/binarygeek119/posterrX" target="_blank" rel="noopener noreferrer">https://github.com/binarygeek119/posterrX</a></li>
+                            target="_blank" rel="noopener noreferrer">https://discord.gg/TcnEkMEf9J</a> (please don't ask them for OnNow support)</li>
+                        <li>PosterrX community Discord: <a href="https://discord.gg/AEhVjqX4Af"
+                            target="_blank" rel="noopener noreferrer">https://discord.gg/AEhVjqX4Af</a> (please don't ask them for OnNow support either; OnNow is a separate, further fork)</li>
+                        <li>Upstream (PosterrX) GitHub: <a href="https://github.com/binarygeek119/posterrX" target="_blank" rel="noopener noreferrer">https://github.com/binarygeek119/posterrX</a></li>
                         <li>Sister project (kiosk displays): <a href="https://github.com/binarygeek119/ubuntudisplayos" target="_blank" rel="noopener noreferrer">https://github.com/binarygeek119/ubuntudisplayos</a></li>
-                        <li>Upstream GitHub repository: <a href="https://github.com/petersem/posterr" target="_blank" rel="noopener noreferrer">petersem/posterr</a>
+                        <li>Original upstream GitHub repository: <a href="https://github.com/petersem/posterr" target="_blank" rel="noopener noreferrer">petersem/posterr</a>
                         </li>
-                        <li>Docker image (PosterX): <a href="https://hub.docker.com/r/binarygeek119/posterrx"
-                            target="_blank" rel="noopener noreferrer">binarygeek119/posterrx</a> (Docker Hub names are lowercase)</li>
+                        <li>Docker image (OnNow): <a href="https://hub.docker.com/r/jdub1120/onnow"
+                            target="_blank" rel="noopener noreferrer">jdub1120/onnow</a> (Docker Hub names are lowercase)</li>
                       </ul>
                     </p>
                     <label class="d-block" style="text-decoration: underline;">Disclaimer</label>
-                    <p class="small">PosterX is dependant on third party applications and services. Some features may fail temporarily or permenantly if the dependancies are unavailable, or become incompatible for any technical or legal reason. This software comes with no warranty or guarantee of any kind. Images and themes that you download through PosterX may be copyrighted, and are the property of the respective copyright holders.</p>
+                    <p class="small">OnNow is dependant on third party applications and services. Some features may fail temporarily or permenantly if the dependancies are unavailable, or become incompatible for any technical or legal reason. This software comes with no warranty or guarantee of any kind. Images and themes that you download through OnNow may be copyrighted, and are the property of the respective copyright holders.</p>
                   </div>
                 </div>
               </div>
@@ -1520,6 +1653,22 @@
 
       </div>
 
+  <script>
+    // Some fields on this page render outside <form id="settingsForm">'s DOM subtree (a pre-existing
+    // markup/parsing quirk somewhere in this large template causes the browser to end the form
+    // element early). Explicitly re-associate every orphaned field — and the Save button itself —
+    // via HTML5's form="" attribute, which works regardless of DOM nesting, so nothing here silently
+    // fails to submit.
+    (function () {
+      var mainForm = document.getElementById('settingsForm');
+      if (!mainForm) return;
+      document.querySelectorAll('input, select, textarea, button[type="submit"]').forEach(function (el) {
+        if (el.getAttribute('form')) return;
+        if (el.closest('form')) return;
+        el.setAttribute('form', 'settingsForm');
+      });
+    })();
+  </script>
 
 </body>
 

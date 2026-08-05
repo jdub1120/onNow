@@ -1,4 +1,5 @@
 const express = require("express");
+const axios = require("axios");
 const path = require("path");
 const app = express();
 const multer = require("multer");
@@ -7,7 +8,6 @@ const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const { check, validationResult } = require("express-validator");
 //const user = require('./routes/user.routes');
-const vers = require("./classes/core/ver");
 const glb = require("./classes/core/globalPage");
 const core = require("./classes/core/cache");
 const sonr = require("./classes/arr/sonarr");
@@ -38,6 +38,10 @@ const posterSyncRetry = require("./classes/core/posterSyncRetry");
 const nowShowingDb = require("./classes/core/nowShowingDb");
 const adsDb = require("./classes/core/adsDb");
 const holidaysDb = require("./classes/core/holidaysDb");
+const holidayRules = require("./classes/core/holidayRules");
+const appleTvSidecar = require("./classes/core/appleTvSidecar");
+const appleTvDevices = require("./classes/core/appleTvDevices");
+const AppleTvProvider = require("./classes/mediaservers/appletv");
 const {
   CONFIG_ROOT,
   CACHE_ROOT,
@@ -74,7 +78,7 @@ if(args.length == 2){
 }
 
 console.log("-------------------------------------------------------");
-console.log(" POSTERX - Your media display");
+console.log(" ONNOW - Your media display");
 console.log(" Developed by Matt Petersen - Brisbane Australia");
 console.log(" ");
 console.log(" Version: " + pjson.version);
@@ -362,9 +366,15 @@ function newFeaturesBannerViewData() {
     appVersion,
   };
 }
-//let endPoint = "https://logz-dev.nesretep.net/pstr";
-let endPoint = "https://logz.nesretep.net/pstr";
-let nsCheckSeconds = 10000; // how often now screening checks are performed. (not available in setup screen as running too often can cause network issues)
+let nsCheckSeconds = 10000; // how often the *media server* (Plex/Jellyfin/Emby/Kodi) now-screening check is performed. (not available in setup screen as running too often can cause network issues)
+// Apple TV's sidecar is a local process on our own network, not a remote API with rate-limit
+// concerns like the media server, so it ticks much faster — loadNowScreening() itself now runs
+// on this cadence, but only actually re-fetches from the media server once nsCheckSeconds has
+// elapsed since the last fetch (see lastMediaServerPollAt below), so Plex/Jellyfin/etc. polling
+// frequency is unchanged.
+let appleTvCheckMs = 3000;
+let lastMediaServerPollAt = 0;
+let mediaServerNsCardsCache = [];
 let isSonarrEnabled = false;
 let isNowShowingEnabled = false;
 let isRadarrEnabled = false;
@@ -383,7 +393,6 @@ let isReadarrUnavailable = false;
 let isTriviaUnavailable = false;
 let isLinksEnabled = false;
 let isLinksUnavailable = false;
-let hasReported = false;
 let cold_start_time = new Date();
 let customPicFolders = [];
 let serverID = "";
@@ -403,6 +412,7 @@ let recentlyAddedDays;
 let contentRatings;
 let oldAwtrixApps = [];
 let isAwtrixEnabled = false;
+let isAppleTvEnabled = false;
 let awtrixIP = "";
 let restartSeconds = 86400000; 
 let excludeLibs = "";
@@ -423,7 +433,7 @@ if (!fs.existsSync(dir)) {
   fs.mkdirSync(dir);
 }
 
-// Prevent multiple PosterX processes from running at the same time.
+// Prevent multiple OnNow processes from running at the same time.
 const APP_LOCK_FILE = path.join(CONFIG_ROOT, "posterr-app.lock");
 let appLockHeld = false;
 
@@ -471,13 +481,13 @@ function acquireAppLockOrExit() {
           appLockHeld = true;
           console.log(
             new Date().toLocaleString() +
-              " PosterX: removed stale process lock and continued startup"
+              " OnNow: removed stale process lock and continued startup"
           );
           return;
         }
         console.log(
           new Date().toLocaleString() +
-            " ✘✘ WARNING ✘✘ - Another PosterX instance is already running (pid " +
+            " ✘✘ WARNING ✘✘ - Another OnNow instance is already running (pid " +
             lockPid +
             "). Exiting this process."
         );
@@ -496,12 +506,15 @@ function acquireAppLockOrExit() {
 
 acquireAppLockOrExit();
 process.on("exit", releaseAppLock);
+process.on("exit", () => appleTvSidecar.stop());
 process.on("SIGINT", () => {
   releaseAppLock();
+  appleTvSidecar.stop();
   process.exit(130);
 });
 process.on("SIGTERM", () => {
   releaseAppLock();
+  appleTvSidecar.stop();
   process.exit(143);
 });
 
@@ -1409,6 +1422,48 @@ function buildLibrarySlideDeckFromPosterCache() {
  * Render cached poster-library slides immediately so /getcards can respond before
  * Now Playing / on-demand network work finishes (first paint on /posters).
  */
+/** Builds the options object passed to globalPage.OrderAndRenderCards / MediaCard.Render from loadedSettings. */
+function buildCardRenderOptions() {
+  const withDefault = (v, d) => (v !== undefined ? v : d);
+  return {
+    hasArt: loadedSettings.hasArt,
+    hideTitle: loadedSettings.odHideTitle,
+    hideFooter: loadedSettings.odHideFooter,
+    showCast: withDefault(loadedSettings.showCast, "false"),
+    showDirectors: withDefault(loadedSettings.showDirectors, "false"),
+    showAuthors: withDefault(loadedSettings.showAuthors, "false"),
+    showAlbumArtist: withDefault(loadedSettings.showAlbumArtist, "false"),
+    showMovieTagline: withDefault(loadedSettings.showMovieTagline, "true"),
+    displayPosterAlbum: withDefault(loadedSettings.displayPosterAlbum, "true"),
+    displayPosterVideo: withDefault(loadedSettings.displayPosterVideo, "true"),
+    displayPosterBooks: withDefault(loadedSettings.displayPosterBooks, "true"),
+    displayPosterActor: withDefault(loadedSettings.displayPosterActor, "false"),
+    displayPosterActress: withDefault(loadedSettings.displayPosterActress, "false"),
+    displayPosterDirector: withDefault(loadedSettings.displayPosterDirector, "false"),
+    displayPosterAuthor: withDefault(loadedSettings.displayPosterAuthor, "false"),
+    displayPosterArtist: withDefault(loadedSettings.displayPosterArtist, "false"),
+    showPillYear: withDefault(loadedSettings.showPillYear, "true"),
+    showPillGenre: withDefault(loadedSettings.showPillGenre, "true"),
+    showPillContentRating: withDefault(loadedSettings.showPillContentRating, "true"),
+    showPillRating: withDefault(loadedSettings.showPillRating, "true"),
+    showPillRuntime: withDefault(loadedSettings.showPillRuntime, "true"),
+    showPillResolution: withDefault(loadedSettings.showPillResolution, "true"),
+    showPillAudioCodec: withDefault(loadedSettings.showPillAudioCodec, "true"),
+    showPillNetwork: withDefault(loadedSettings.showPillNetwork, "true"),
+    showPillStudio: withDefault(loadedSettings.showPillStudio, "true"),
+    showPillLibrary: withDefault(loadedSettings.showPillLibrary, "true"),
+    showPillEpisode: withDefault(loadedSettings.showPillEpisode, "true"),
+    showPill3D: withDefault(loadedSettings.showPill3D, "true"),
+    showPillEndTime: withDefault(loadedSettings.showPillEndTime, "true"),
+    showPillPageCount: withDefault(loadedSettings.showPillPageCount, "true"),
+    showPillLeadCast: withDefault(loadedSettings.showPillLeadCast, "true"),
+    showPillUser: withDefault(loadedSettings.showPillUser, "true"),
+    showPillDevice: withDefault(loadedSettings.showPillDevice, "true"),
+    showPillIP: withDefault(loadedSettings.showPillIP, "true"),
+    useRtRatingIcons: loadedSettings.mediaServerType === "plex",
+  };
+}
+
 async function warmCachedPosterDeckEarlyIfPossible() {
   if (!loadedSettings || !isOnDemandEnabled || !preferCachedPostersEnabled()) return;
   if (!cachedPosterDbHasRows()) return;
@@ -1418,44 +1473,7 @@ async function warmCachedPosterDeckEarlyIfPossible() {
   if (!cached.length) return;
   globalPage.cards = cached.slice();
   try {
-    await globalPage.OrderAndRenderCards(
-      BASEURL,
-      loadedSettings.hasArt,
-      loadedSettings.odHideTitle,
-      loadedSettings.odHideFooter,
-      loadedSettings.showCast !== undefined ? loadedSettings.showCast : "false",
-      loadedSettings.showDirectors !== undefined
-        ? loadedSettings.showDirectors
-        : "false",
-      loadedSettings.showAuthors !== undefined ? loadedSettings.showAuthors : "false",
-      loadedSettings.showAlbumArtist !== undefined
-        ? loadedSettings.showAlbumArtist
-        : "false",
-      loadedSettings.displayPosterAlbum !== undefined
-        ? loadedSettings.displayPosterAlbum
-        : "true",
-      loadedSettings.displayPosterVideo !== undefined
-        ? loadedSettings.displayPosterVideo
-        : "true",
-      loadedSettings.displayPosterBooks !== undefined
-        ? loadedSettings.displayPosterBooks
-        : "true",
-      loadedSettings.displayPosterActor !== undefined
-        ? loadedSettings.displayPosterActor
-        : "false",
-      loadedSettings.displayPosterActress !== undefined
-        ? loadedSettings.displayPosterActress
-        : "false",
-      loadedSettings.displayPosterDirector !== undefined
-        ? loadedSettings.displayPosterDirector
-        : "false",
-      loadedSettings.displayPosterAuthor !== undefined
-        ? loadedSettings.displayPosterAuthor
-        : "false",
-      loadedSettings.displayPosterArtist !== undefined
-        ? loadedSettings.displayPosterArtist
-        : "false"
-    );
+    await globalPage.OrderAndRenderCards(BASEURL, buildCardRenderOptions());
     globalPage.slideDuration = loadedSettings.slideDuration * 1000;
     globalPage.playThemes = loadedSettings.playThemes;
     globalPage.playGenericThemes = loadedSettings.genericThemes;
@@ -1465,6 +1483,7 @@ async function warmCachedPosterDeckEarlyIfPossible() {
     globalPage.titleColour = loadedSettings.titleColour;
     globalPage.footColour = loadedSettings.footColour;
     globalPage.bgColour = loadedSettings.bgColour;
+    globalPage.progressColour = loadedSettings.progressColour;
     globalPage.hasArt = loadedSettings.hasArt;
     globalPage.quizTime =
       loadedSettings.triviaTimer !== undefined ? loadedSettings.triviaTimer : 15;
@@ -1505,14 +1524,14 @@ async function loadNowScreening() {
     tmdbNowShowingPosterCards = [];
   }
 
-  // stop timers dont run if disabled
-  if (!isMediaServerEnabled && !skipMediaServerNowPlayingFetch) {
+  // stop timers dont run if disabled (Apple TV is additive, so it must not be blocked by this early-out)
+  if (!isMediaServerEnabled && !isAppleTvEnabled && !skipMediaServerNowPlayingFetch) {
     nsCards = [];
     return nsCards;
   }
 
   let ms = null;
-  if (!skipMediaServerNowPlayingFetch) {
+  if (!skipMediaServerNowPlayingFetch && isMediaServerEnabled) {
     const Pms = getMediaServerClass(loadedSettings.mediaServerType);
     ms = new Pms({
       plexHTTPS: loadedSettings.plexHTTPS,
@@ -1534,8 +1553,11 @@ async function loadNowScreening() {
   
 
   let pollInterval = nsCheckSeconds;
+  const mediaServerDue = Date.now() - lastMediaServerPollAt >= nsCheckSeconds;
   // call now screening method
-  if (!skipMediaServerNowPlayingFetch) {
+  if (!skipMediaServerNowPlayingFetch && isMediaServerEnabled && !mediaServerDue) {
+    nsCards = mediaServerNsCardsCache;
+  } else if (!skipMediaServerNowPlayingFetch && isMediaServerEnabled) {
     try {
       nsCards = await ms.GetNowScreening(
         loadedSettings.playThemes,
@@ -1548,6 +1570,8 @@ async function loadNowScreening() {
         loadedSettings.hideUser,
         excludeLibraries
       );
+      mediaServerNsCardsCache = nsCards;
+      lastMediaServerPollAt = Date.now();
     // Send to Awtrix, if enabled
     if(isAwtrixEnabled){
       var awt = new awtrix();
@@ -1691,11 +1715,35 @@ async function loadNowScreening() {
       let now = new Date();
       console.log(now.toLocaleString() + " *Now Playing. - Get full data: " + dumpError(err));
       pollInterval = nsCheckSeconds + 60000;
+      // Push the next-due time out by the backoff amount rather than slowing the whole loop
+      // (which now also drives Apple TV's fast poll) — only the media server fetch backs off.
+      lastMediaServerPollAt = Date.now() - nsCheckSeconds + pollInterval;
       console.log(
         "✘✘ WARNING ✘✘ - Next Now Screening query will be delayed by 1 minute:",
         "(" + pollInterval / 1000 + " seconds)"
       );
       isMediaServerUnavailable = true;
+      nsCards = mediaServerNsCardsCache;
+    }
+  } else if (!isMediaServerEnabled && !skipMediaServerNowPlayingFetch) {
+    nsCards = [];
+    mediaServerNsCardsCache = [];
+  }
+
+  if (isAppleTvEnabled) {
+    await appleTvSidecar.checkHealth();
+    if (appleTvSidecar.isAvailable()) {
+      try {
+        await appleTvSidecar.syncDevices(await appleTvDevices.listEnabledDevices());
+        const atv = new AppleTvProvider({
+          sidecarBaseUrl: appleTvSidecar.baseUrl(),
+          tmdbApiKey: loadedSettings.tmdbApiKey,
+        });
+        const atvCards = await atv.GetNowScreening(loadedSettings.hideUser, loadedSettings.filterDevices);
+        nsCards = nsCards.concat(atvCards);
+      } catch (err) {
+        console.log(new Date().toLocaleString() + " *Now Scrn. - Apple TV: " + dumpError(err));
+      }
     }
   }
 
@@ -1899,8 +1947,11 @@ async function loadNowScreening() {
   }
 
   if (isMediaServerEnabled) {
+    // exclude Apple TV cards — ephemeral now-playing state, not library items resolvable
+    // against the primary media server's library
+    const libraryNsCards = nsCards.filter((c) => c.posterLibraryKind !== "appletv");
     posterMetadata.registerFromMediaServerCards(
-      nsCards,
+      libraryNsCards,
       odCards,
       getMediaServerKind(loadedSettings.mediaServerType)
     );
@@ -1943,46 +1994,7 @@ async function loadNowScreening() {
 
   // put everything into global class, ready to be passed to poster.ejs
   // render html for all cards
-  await globalPage.OrderAndRenderCards(
-    BASEURL,
-    loadedSettings.hasArt,
-    loadedSettings.odHideTitle,
-    loadedSettings.odHideFooter,
-    loadedSettings.showCast !== undefined ? loadedSettings.showCast : "false",
-    loadedSettings.showDirectors !== undefined
-      ? loadedSettings.showDirectors
-      : "false",
-    loadedSettings.showAuthors !== undefined
-      ? loadedSettings.showAuthors
-      : "false",
-    loadedSettings.showAlbumArtist !== undefined
-      ? loadedSettings.showAlbumArtist
-      : "false",
-    loadedSettings.displayPosterAlbum !== undefined
-      ? loadedSettings.displayPosterAlbum
-      : "true",
-    loadedSettings.displayPosterVideo !== undefined
-      ? loadedSettings.displayPosterVideo
-      : "true",
-    loadedSettings.displayPosterBooks !== undefined
-      ? loadedSettings.displayPosterBooks
-      : "true",
-    loadedSettings.displayPosterActor !== undefined
-      ? loadedSettings.displayPosterActor
-      : "false",
-    loadedSettings.displayPosterActress !== undefined
-      ? loadedSettings.displayPosterActress
-      : "false",
-    loadedSettings.displayPosterDirector !== undefined
-      ? loadedSettings.displayPosterDirector
-      : "false",
-    loadedSettings.displayPosterAuthor !== undefined
-      ? loadedSettings.displayPosterAuthor
-      : "false",
-    loadedSettings.displayPosterArtist !== undefined
-      ? loadedSettings.displayPosterArtist
-      : "false"
-  );
+  await globalPage.OrderAndRenderCards(BASEURL, buildCardRenderOptions());
   globalPage.slideDuration = loadedSettings.slideDuration * 1000;
   globalPage.playThemes = loadedSettings.playThemes;
   globalPage.playGenericThemes = loadedSettings.genericThemes;
@@ -1992,13 +2004,17 @@ async function loadNowScreening() {
   globalPage.titleColour = loadedSettings.titleColour;
   globalPage.footColour = loadedSettings.footColour;
   globalPage.bgColour = loadedSettings.bgColour;
+  globalPage.progressColour = loadedSettings.progressColour;
   globalPage.hasArt = loadedSettings.hasArt;
   globalPage.quizTime = loadedSettings.triviaTimer !== undefined ? loadedSettings.triviaTimer : 15;
   globalPage.hideSettingsLinks = loadedSettings.hideSettingsLinks !== undefined ? loadedSettings.hideSettingsLinks : 'false';
   globalPage.rotate = loadedSettings.rotate !== undefined ? loadedSettings.rotate : "false";
 
-  // restart the clock
-  nowScreeningClock = setInterval(loadNowScreening, pollInterval);
+  // restart the clock — ticks fast enough for Apple TV's own poll cadence when it's enabled
+  // (the media server fetch above is separately throttled to nsCheckSeconds via
+  // lastMediaServerPollAt, so this doesn't increase Plex/Jellyfin/etc. polling frequency).
+  // No reason to tick faster than the media server's own interval for setups without Apple TV.
+  nowScreeningClock = setInterval(loadNowScreening, isAppleTvEnabled ? appleTvCheckMs : pollInterval);
   return nsCards;
 }
 
@@ -2114,7 +2130,15 @@ async function ensureOdCardsForNowShowingFill() {
  * @returns {Promise<object>} mediaCards array - results of on-demand search
  */
 async function loadOnDemand() {
+  // stop the clock (every branch below re-arms it — clearing first here, before any
+  // early return, keeps this the single place that can ever leave two intervals running)
+  clearInterval(onDemandClock);
+
   if (posterSyncProgressState.status === "running") {
+    console.log(
+      new Date().toLocaleString() +
+        " *On-demand refresh skipped — full poster sync still running (status stuck here across many cycles would mean on-demand cards never refresh; check /settings/sync/progress)"
+    );
     const odCheckMinutes = Number(loadedSettings.onDemandRefresh);
     const nextMs = isNaN(odCheckMinutes)
       ? 30 * 60 * 1000
@@ -2122,8 +2146,6 @@ async function loadOnDemand() {
     onDemandClock = setInterval(loadOnDemand, nextMs);
     return odCards;
   }
-  // stop the clock
-  clearInterval(onDemandClock);
 
   // dont restart clock and dont run if disabled
   if (!isOnDemandEnabled) {
@@ -2200,6 +2222,8 @@ async function checkEnabled() {
   isTriviaEnabled = false;
   isLinksEnabled = false;
   isAwtrixEnabled = false;
+  const wasAppleTvEnabled = isAppleTvEnabled;
+  isAppleTvEnabled = false;
 
   let sleepStart;
   let sleepEnd;
@@ -2207,6 +2231,18 @@ async function checkEnabled() {
 
   // check links
   if (loadedSettings.enableAwtrix == 'true' && loadedSettings.awtrixIP != null) isAwtrixEnabled = true;
+
+  // check Apple TV — additive source, independent of the exclusive media-server switch
+  // (device list is (re)synced to the sidecar on every loadNowScreening() poll tick, not here,
+  // since that's the loop that reliably retries if the sidecar wasn't up yet on the first try)
+  if (loadedSettings.enableAppleTv == 'true') isAppleTvEnabled = true;
+  if (isAppleTvEnabled !== wasAppleTvEnabled) {
+    if (isAppleTvEnabled) {
+      await appleTvSidecar.ensureRunning({ port: loadedSettings.appleTvSidecarPort });
+    } else {
+      appleTvSidecar.stop();
+    }
+  }
 
   // check links
   if (loadedSettings.enableLinks == 'true') isLinksEnabled = true;
@@ -2409,6 +2445,9 @@ async function checkEnabled() {
     `
    Awtrix: ` +
     isAwtrixEnabled +
+    `
+   Apple TV: ` +
+    isAppleTvEnabled +
     `
    On-demand: ` +
     isOnDemandEnabled +
@@ -3154,54 +3193,11 @@ async function startup(clearCache) {
     const saved = await setng.UpdateSettings(loadedSettings);
   }
 
-  if (hasReported == false && loadedSettings !== undefined) {
-    let v = new vers(endPoint);
-    const logzResponse = await v.log(loadedSettings.serverID, pjson.version, isNowShowingEnabled, isOnDemandEnabled, isSonarrEnabled, isRadarrEnabled, isPicturesEnabled, isReadarrEnabled, isTriviaEnabled, isLinksEnabled);
-    message = logzResponse.message;
-    latestVersion = logzResponse.version;
-    hasReported = true;
-  }
-  if (latestVersion !== undefined && latestVersion !== pjson.version.toString()) {
-    // version numbers
-    let curMaj = parseInt(pjson.version.toString().split(".")[0]);
-    let curMed = parseInt(pjson.version.toString().split(".")[1]);
-    let curMin = parseInt(pjson.version.toString().split(".")[2]);
-    let rptMaj = parseInt(latestVersion.split(".")[0]);
-    let rptMed = parseInt(latestVersion.split(".")[1]);
-    let rptMin = parseInt(latestVersion.split(".")[2]);
-
-    // check if update required
-    if (rptMaj > curMaj) {
-      updateAvailable = true;
-    }
-    else {
-      if (rptMaj == curMaj && rptMed > curMed) {
-        updateAvailable = true;
-      }
-      else {
-        if (rptMaj == curMaj && rptMed == curMed && rptMin > curMin) {
-          updateAvailable = true;
-        }
-        else {
-          updateAvailable = false;
-        }
-      }
-    }
-
-    if (updateAvailable == true) {
-      console.log("*** PLEASE UPDATE TO v" + latestVersion + " ***");
-      console.log("");
-    }
-    else {
-      console.log("*** You are running the latest version of PosterX ***");
-      console.log("");
-    }
-  }
-
-  if (message !== undefined && message !== "") {
-    console.log("Message: " + message);
-    console.log("");
-  }
+  // Update/message check against upstream's (Matt Petersen's) remote telemetry endpoint was
+  // removed here: it silently POSTed a per-install UUID, version, and enabled-feature flags to
+  // https://logz.nesretep.net/pstr on every startup, undisclosed, and the "latest version"/
+  // "message" it returned tracked Posterr/PosterrX's own release cadence, not OnNow's — the
+  // update-available banner it drove was never actually meaningful for this fork.
 
   // setup sleep mode if enabled
   if(isSleepEnabled==true){
@@ -3246,39 +3242,49 @@ async function startup(clearCache) {
  * @returns nothing
  */
 async function saveReset(formObject) {
-  const saved = await setng.SaveSettingsJSON(formObject);
-  // cancel all clocks, then pause 5 seconds to ensure downloads finished
-  clearInterval(nowScreeningClock);
-  clearInterval(onDemandClock);
-  clearInterval(sonarrClock);
-  clearInterval(radarrClock);
-  clearInterval(readarrClock);
-  clearInterval(lidarrClock);
-  clearInterval(houseKeepingClock);
-  clearInterval(picturesClock);
-  clearInterval(triviaClock);
-  clearInterval(linksClock);
-  clearInterval(posterMetadataRefreshClock);
+  await setng.SaveSettingsJSON(formObject);
+  // Refresh loadedSettings immediately (cheap — just re-reads the settings instance) so a
+  // caller awaiting just this far already sees fresh data, without waiting on the slow
+  // full library resync below (which can take seconds and previously made the settings
+  // page's post-save render show stale values race-style).
+  loadedSettings = await loadSettings();
 
-  // clear cards
-  nsCards = [];
-  odCards = [];
-  csCards = [];
-  csrCards = [];
-  picCards = [];
-  adSlideCards = [];
-  cslCards = [];
-  csbCards = [];
-  trivCards = [];
-  linkCards = [];
+  // Slow part: cancel clocks and do a full resync/restart in the background. Not awaited by
+  // design — callers that only need loadedSettings updated (e.g. the settings save route)
+  // shouldn't block on this.
+  (async () => {
+    clearInterval(nowScreeningClock);
+    clearInterval(onDemandClock);
+    clearInterval(sonarrClock);
+    clearInterval(radarrClock);
+    clearInterval(readarrClock);
+    clearInterval(lidarrClock);
+    clearInterval(houseKeepingClock);
+    clearInterval(picturesClock);
+    clearInterval(triviaClock);
+    clearInterval(linksClock);
+    clearInterval(posterMetadataRefreshClock);
 
-  console.log(
-    "✘✘ WARNING ✘✘ - Restarting. Please wait while current jobs complete"
-  );
-  // clear old cards
-  globalPage.cards = [];
-  // dont clear cached files if restarting after settings saved
-  startup(false);
+    // clear cards
+    nsCards = [];
+    odCards = [];
+    csCards = [];
+    csrCards = [];
+    picCards = [];
+    adSlideCards = [];
+    cslCards = [];
+    csbCards = [];
+    trivCards = [];
+    linkCards = [];
+
+    console.log(
+      "✘✘ WARNING ✘✘ - Restarting. Please wait while current jobs complete"
+    );
+    // clear old cards
+    globalPage.cards = [];
+    // dont clear cached files if restarting after settings saved
+    startup(false);
+  })();
 }
 
 // call all card providers - initial card loads and sets scheduled runs
@@ -3304,7 +3310,17 @@ app.use(cookieParser());
 app.use(
   session({
     cookie: {
-      secure: true,
+      // Always non-secure: this app's default deployment (docker-compose.yml's plain
+      // 9876:3000 mapping, no reverse proxy) is plain HTTP only. A hardcoded `true` breaks
+      // every session-dependent feature over HTTP (browsers won't store/send a Secure
+      // cookie on a non-HTTPS connection). "auto" looks appealing but is actually worse here:
+      // combined with "trust proxy" above, it trusts a client-supplied X-Forwarded-Proto
+      // header with no real proxy in front to have set it truthfully — if that header is
+      // ever present (stray client/network behavior) the cookie gets marked Secure on a
+      // plain HTTP connection anyway, and the browser then silently refuses to send it back,
+      // manifesting as "asks me to log in again on almost every click." Since this app has no
+      // built-in HTTPS/proxy support to trust, non-secure is the only value safe by default.
+      secure: false,
       maxAge: 3000000,
     },
     // store: cookieParser,
@@ -3581,313 +3597,17 @@ function normalizeNowShowingTitle(t) {
     .trim();
 }
 
-let holidaysDbInitPromise = null;
-async function ensureHolidaysDbReady() {
-  if (!holidaysDbInitPromise) {
-    holidaysDbInitPromise = holidaysDb.initHolidaysDb().catch((e) => {
-      holidaysDbInitPromise = null;
-      throw e;
-    });
-  }
-  await holidaysDbInitPromise;
-}
-
-function normalizeHolidayMonthDay(raw) {
-  const s = String(raw || "").trim();
-  if (!s) return "";
-  const m = s.match(/^(\d{1,2})-(\d{1,2})$/);
-  if (m) {
-    const mo = parseInt(m[1], 10);
-    const da = parseInt(m[2], 10);
-    if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
-      return String(mo).padStart(2, "0") + "-" + String(da).padStart(2, "0");
-    }
-  }
-  const ymd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (ymd) {
-    const mo = parseInt(ymd[2], 10);
-    const da = parseInt(ymd[3], 10);
-    if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
-      return String(mo).padStart(2, "0") + "-" + String(da).padStart(2, "0");
-    }
-  }
-  const dt = new Date(s);
-  if (isNaN(dt.getTime())) return "";
-  return (
-    String(dt.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(dt.getDate()).padStart(2, "0")
-  );
-}
-
-function normalizeHolidayInt(raw, min, max, fallback) {
-  const n = parseInt(String(raw == null ? "" : raw).trim(), 10);
-  if (isNaN(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-}
-
-function normalizeHolidayMode(raw) {
-  return String(raw || "").trim().toLowerCase() === "dynamic"
-    ? "dynamic"
-    : "fixed";
-}
-
-function normalizeHolidayMatchMode(raw) {
-  return String(raw || "").trim().toLowerCase() === "and" ? "and" : "or";
-}
-
-function normalizeHolidayPlotKeywords(raw) {
-  return String(raw || "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 20);
-}
-
-function computeNthWeekdayOfMonth(year, monthOneBased, weekday, nth) {
-  if (!Number.isFinite(year)) return null;
-  const month = Math.max(1, Math.min(12, monthOneBased));
-  const wd = Math.max(0, Math.min(6, weekday));
-  const nthNorm = String(nth || "").toLowerCase() === "last" ? "last" : String(nth);
-  if (nthNorm === "last") {
-    const last = new Date(year, month, 0);
-    const d = new Date(last.getTime());
-    while (d.getDay() !== wd) d.setDate(d.getDate() - 1);
-    return d;
-  }
-  const n = normalizeHolidayInt(nthNorm, 1, 5, 1);
-  const first = new Date(year, month - 1, 1);
-  const delta = (wd - first.getDay() + 7) % 7;
-  const day = 1 + delta + (n - 1) * 7;
-  const candidate = new Date(year, month - 1, day);
-  if (candidate.getMonth() !== month - 1) return null;
-  return candidate;
-}
-
-function readHolidayRulesFromSettings() {
-  let parsed = [];
-  try {
-    parsed = holidaysDb.listRules();
-  } catch (e) {
-    parsed = [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .map((r) => {
-      const mode = normalizeHolidayMode(r && r.mode);
-      const tag = String((r && r.tag) || "").trim().toLowerCase();
-      const titleKeywords = normalizeHolidayPlotKeywords(r && r.titleKeywords);
-      const plotKeywords = normalizeHolidayPlotKeywords(r && r.plotKeywords);
-      const matchMode = normalizeHolidayMatchMode(r && r.matchMode);
-      if (mode === "dynamic") {
-        const month = normalizeHolidayInt(r && r.month, 1, 12, 11);
-        const weekday = normalizeHolidayInt(r && r.weekday, 0, 6, 4);
-        const nthRaw = String((r && r.nth) || "").trim().toLowerCase();
-        const nth =
-          nthRaw === "last"
-            ? "last"
-            : String(normalizeHolidayInt(nthRaw || "1", 1, 5, 1));
-        const spanDays = normalizeHolidayInt(r && r.spanDays, 0, 31, 0);
-        return {
-          mode,
-          month,
-          weekday,
-          nth,
-          spanDays,
-          tag,
-          titleKeywords,
-          plotKeywords,
-          matchMode,
-        };
-      }
-      const start = normalizeHolidayMonthDay(r && r.start);
-      const end = normalizeHolidayMonthDay(r && r.end);
-      return {
-        mode: "fixed",
-        start,
-        end,
-        tag,
-        titleKeywords,
-        plotKeywords,
-        matchMode,
-      };
-    })
-    .filter((r) => {
-      if (
-        !r.tag &&
-        (!Array.isArray(r.titleKeywords) || r.titleKeywords.length === 0) &&
-        (!Array.isArray(r.plotKeywords) || r.plotKeywords.length === 0)
-      )
-        return false;
-      if (r.mode === "dynamic") return true;
-      return !!(r.start && r.end);
-    });
-}
-
-function monthDayInHolidayRange(todayMd, startMd, endMd) {
-  if (!todayMd || !startMd || !endMd) return false;
-  if (startMd <= endMd) return todayMd >= startMd && todayMd <= endMd;
-  return todayMd >= startMd || todayMd <= endMd;
-}
-
-function activeHolidayRulesForToday() {
-  const now = new Date();
-  const todayMd =
-    String(now.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(now.getDate()).padStart(2, "0");
-  const active = [];
-  for (const rule of readHolidayRulesFromSettings()) {
-    if (rule.mode === "dynamic") {
-      const base = computeNthWeekdayOfMonth(
-        now.getFullYear(),
-        rule.month,
-        rule.weekday,
-        rule.nth
-      );
-      if (!base) continue;
-      const end = new Date(base.getTime());
-      end.setDate(end.getDate() + (rule.spanDays || 0));
-      const startMd =
-        String(base.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(base.getDate()).padStart(2, "0");
-      const endMd =
-        String(end.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(end.getDate()).padStart(2, "0");
-      if (monthDayInHolidayRange(todayMd, startMd, endMd)) {
-        active.push(rule);
-      }
-      continue;
-    }
-    if (monthDayInHolidayRange(todayMd, rule.start, rule.end)) {
-      active.push(rule);
-    }
-  }
-  return active;
-}
-
-function ruleTextMatch(rule, tagHay, titleHay, plotHay) {
-  if (!rule) return false;
-  const needsTag = !!rule.tag;
-  const needsTitle =
-    Array.isArray(rule.titleKeywords) && rule.titleKeywords.length > 0;
-  const needsPlot =
-    Array.isArray(rule.plotKeywords) && rule.plotKeywords.length > 0;
-  if (!needsTag && !needsTitle && !needsPlot) return false;
-  const tagMatch = !needsTag || String(tagHay || "").includes(rule.tag);
-  const titleMatch =
-    !needsTitle ||
-    rule.titleKeywords.some((kw) => String(titleHay || "").includes(kw));
-  const plotMatch =
-    !needsPlot ||
-    rule.plotKeywords.some((kw) => String(plotHay || "").includes(kw));
-  return rule.matchMode === "and"
-    ? tagMatch && titleMatch && plotMatch
-    : tagMatch || titleMatch || plotMatch;
-}
-
-function cardMatchesHolidayRule(card, rule) {
-  if (!card || !rule) return false;
-  const genreText = Array.isArray(card.genre)
-    ? card.genre.join(" ")
-    : String(card.genre || "");
-  const tagHay = (
-    String(card.title || "") +
-    " " +
-    String(card.tagLine || "") +
-    " " +
-    String(card.summary || "") +
-    " " +
-    String(card.studio || "") +
-    " " +
-    String(card.cast || "") +
-    " " +
-    String(card.directors || "") +
-    " " +
-    String(card.authors || "") +
-    " " +
-    String(card.albumArtist || "") +
-    " " +
-    String(card.tags || "") +
-    " " +
-    genreText
-  )
-    .toLowerCase()
-    .trim();
-  const titleHay = (
-    String(card.title || "") + " " + String(card.tagLine || "")
-  )
-    .toLowerCase()
-    .trim();
-  const plotHay = (
-    String(card.summary || "") + " " + String(card.plot || "")
-  )
-    .toLowerCase()
-    .trim();
-  return ruleTextMatch(rule, tagHay, titleHay, plotHay);
-}
-
-function nowShowingRowMatchesHolidayRule(row, rule) {
-  if (!row || !rule) return false;
-  const tagHay = (
-    String(row.title || "") +
-    " " +
-    String(row.genres || "") +
-    " " +
-    String(row.topCast || "") +
-    " " +
-    String(row.studio || "")
-  )
-    .toLowerCase()
-    .trim();
-  const titleHay = String(row.title || "").toLowerCase().trim();
-  const plotHay = String(row.overview || "").toLowerCase().trim();
-  return ruleTextMatch(rule, tagHay, titleHay, plotHay);
-}
-
-function boostCardsByHolidayRules(cards, activeRules) {
-  if (!Array.isArray(cards) || !cards.length) return cards;
-  if (!Array.isArray(activeRules) || activeRules.length === 0) return cards;
-  const HOLIDAY_BOOST_COPIES = 4;
-  const boost = [];
-  for (const card of cards) {
-    let matches = false;
-    for (const rule of activeRules) {
-      if (cardMatchesHolidayRule(card, rule)) {
-        matches = true;
-        break;
-      }
-    }
-    if (matches) boost.push(card);
-  }
-  if (!boost.length) return cards;
-  const out = cards.slice();
-  for (let i = 0; i < HOLIDAY_BOOST_COPIES; i++) out.push(...boost);
-  return out;
-}
-
-function boostNowShowingRowsByHolidayRules(rows, activeRules) {
-  if (!Array.isArray(rows) || !rows.length) return rows;
-  if (!Array.isArray(activeRules) || activeRules.length === 0) return rows;
-  const HOLIDAY_BOOST_COPIES = 4;
-  const boost = [];
-  for (const row of rows) {
-    let matches = false;
-    for (const rule of activeRules) {
-      if (nowShowingRowMatchesHolidayRule(row, rule)) {
-        matches = true;
-        break;
-      }
-    }
-    if (matches) boost.push({ ...row });
-  }
-  if (!boost.length) return rows;
-  const out = rows.slice();
-  for (let i = 0; i < HOLIDAY_BOOST_COPIES; i++) out.push(...boost);
-  return out;
-}
+const {
+  ensureHolidaysDbReady,
+  activeHolidayRulesForToday,
+  boostCardsByHolidayRules,
+  boostNowShowingRowsByHolidayRules,
+  normalizeHolidayMonthDay,
+  normalizeHolidayInt,
+  normalizeHolidayMode,
+  normalizeHolidayMatchMode,
+  normalizeHolidayPlotKeywords,
+} = holidayRules;
 
 function normalizeLibraryNameFor3d(name) {
   return String(name || "")
@@ -4490,7 +4210,7 @@ app.get(BASEURL + "/ads/data", (req, res) => {
   }
 });
 
-// Used by the web client to check connection status to PosterX, and also to determine if there was a cold start that was missed
+// Used by the web client to check connection status to OnNow, and also to determine if there was a cold start that was missed
 
 app.get(BASEURL + "/conncheck", (req, res) => {
   res.send({ "status": cold_start_time, "sleep": sleep });
@@ -4697,38 +4417,20 @@ app.get(BASEURL + "/settings", (req, res) => {
   const cacheClearNotice = req.session.cacheClearNotice || null;
   req.session.cacheClearNotice = null;
 
-  if (loadedSettings.password == undefined) {
-    res.render("settings", {
-      success: req.session.success,
-      user: { valid: true },
-      settings: loadedSettings,
-      errors: req.session.errors,
-      version: pjson.version,
-      baseUrl: BASEURL,
-      customPicFolders: customPicFolders,
-      latestVersion: latestVersion,
-      message: message,
-      updateAvailable: updateAvailable,
-      cacheClearNotice: cacheClearNotice,
-      ...newFeaturesBannerViewData(),
-    });
-  }
-  else {
-    res.render("settings", {
-      success: req.session.success,
-      user: { valid: false },
-      settings: loadedSettings,
-      errors: req.session.errors,
-      version: pjson.version,
-      baseUrl: BASEURL,
-      customPicFolders: customPicFolders,
-      latestVersion: latestVersion,
-      message: message,
-      updateAvailable: updateAvailable,
-      cacheClearNotice: cacheClearNotice,
-      ...newFeaturesBannerViewData(),
-    });
-  }
+  res.render("settings", {
+    success: req.session.success,
+    user: loadedSettings.password === undefined ? { valid: true } : userData,
+    settings: loadedSettings,
+    errors: req.session.errors,
+    version: pjson.version,
+    baseUrl: BASEURL,
+    customPicFolders: customPicFolders,
+    latestVersion: latestVersion,
+    message: message,
+    updateAvailable: updateAvailable,
+    cacheClearNotice: cacheClearNotice,
+    ...newFeaturesBannerViewData(),
+  });
   req.session.errors = null;
 });
 
@@ -4997,6 +4699,173 @@ app.post(BASEURL + "/settings/sync/clear-cache", async (req, res) => {
     };
   }
   return res.redirect(302, BASEURL + "/settings/sync");
+});
+
+app.post(BASEURL + "/settings/appletv/toggle-enabled", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.redirect(302, BASEURL + "/logon");
+  }
+  const enabled = req.body.enableAppleTv === "true" ? "true" : "false";
+  try {
+    const settingsPath = path.join(__dirname, "config", "settings.json");
+    let data = {};
+    try {
+      if (fs.existsSync(settingsPath)) data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    } catch (e) {
+      data = {};
+    }
+    data.enableAppleTv = enabled;
+    fs.writeFileSync(settingsPath, JSON.stringify(data, null, 4), "utf8");
+    loadedSettings.enableAppleTv = enabled;
+    setng.enableAppleTv = enabled;
+    await checkEnabled();
+    req.session.appleTvNotice = {
+      ok: true,
+      text: "Apple TV integration " + (enabled === "true" ? "enabled" : "disabled") + ".",
+    };
+  } catch (err) {
+    req.session.appleTvNotice = {
+      ok: false,
+      text: "Could not save: " + (err && err.message ? err.message : String(err)),
+    };
+  }
+  res.redirect(302, BASEURL + "/settings/appletv");
+});
+
+app.get(BASEURL + "/settings/appletv", async (req, res) => {
+  const appleTvNotice = req.session.appleTvNotice || null;
+  req.session.appleTvNotice = null;
+  const discovered = req.session.appleTvDiscovered || null;
+  req.session.appleTvDiscovered = null;
+  const devices = await appleTvDevices.listDevices();
+  res.render("settings-appletv", {
+    user: loadedSettings.password === undefined ? { valid: true } : userData,
+    settings: loadedSettings,
+    version: pjson.version,
+    baseUrl: BASEURL,
+    latestVersion: latestVersion,
+    message: message,
+    updateAvailable: updateAvailable,
+    appleTvNotice: appleTvNotice,
+    devices: devices,
+    discovered: discovered,
+    sidecarAvailable: appleTvSidecar.isAvailable(),
+    ...newFeaturesBannerViewData(),
+  });
+});
+
+app.post(BASEURL + "/settings/appletv/discover", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.redirect(302, BASEURL + "/logon");
+  }
+  try {
+    await appleTvSidecar.ensureRunning({ port: loadedSettings.appleTvSidecarPort });
+    if (!appleTvSidecar.isAvailable()) {
+      req.session.appleTvNotice = {
+        ok: false,
+        text: "Apple TV helper process is not running — check that python3/pyatv are installed.",
+      };
+      return res.redirect(302, BASEURL + "/settings/appletv");
+    }
+    const result = await axios.get(appleTvSidecar.baseUrl() + "/discover?timeout=5", { timeout: 10000 });
+    req.session.appleTvDiscovered = (result.data && result.data.devices) || [];
+  } catch (err) {
+    req.session.appleTvNotice = {
+      ok: false,
+      text: "Discovery failed: " + (err && err.message ? err.message : String(err)),
+    };
+  }
+  res.redirect(302, BASEURL + "/settings/appletv");
+});
+
+app.post(BASEURL + "/settings/appletv/pair/start", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  try {
+    await appleTvSidecar.ensureRunning({ port: loadedSettings.appleTvSidecarPort });
+    if (!appleTvSidecar.isAvailable()) {
+      return res.json({ ok: false, error: "Apple TV helper process is not running." });
+    }
+    const result = await axios.post(appleTvSidecar.baseUrl() + "/pairing/start", {
+      identifier: req.body.identifier,
+      address: req.body.address,
+      protocol: req.body.protocol,
+    });
+    res.json(Object.assign({ ok: true }, result.data));
+  } catch (err) {
+    const data = err && err.response && err.response.data;
+    res.json({ ok: false, error: (data && data.error) || (err && err.message) || String(err) });
+  }
+});
+
+app.post(BASEURL + "/settings/appletv/pair/submit-pin", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  try {
+    const result = await axios.post(appleTvSidecar.baseUrl() + "/pairing/pin", {
+      pairingSessionId: req.body.pairingSessionId,
+      pin: req.body.pin,
+    });
+    res.json(result.data);
+  } catch (err) {
+    const data = err && err.response && err.response.data;
+    res.json({ ok: false, error: (data && data.error) || (err && err.message) || String(err) });
+  }
+});
+
+app.post(BASEURL + "/settings/appletv/pair/cancel", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  try {
+    await axios.post(appleTvSidecar.baseUrl() + "/pairing/cancel", {
+      pairingSessionId: req.body.pairingSessionId,
+    });
+  } catch (err) {
+    /* best-effort */
+  }
+  res.json({ ok: true });
+});
+
+app.post(BASEURL + "/settings/appletv/save-device", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  const { identifier, address, name, credentials } = req.body || {};
+  if (!identifier || !address || !credentials || !credentials.companion || !credentials.airplay) {
+    return res.json({ ok: false, error: "Missing identifier/address/credentials." });
+  }
+  try {
+    await appleTvDevices.addOrUpdateDevice({ identifier, address, name, credentials });
+    await appleTvSidecar.syncDevices(await appleTvDevices.listEnabledDevices());
+    res.json({ ok: true });
+  } catch (err) {
+    res.json({ ok: false, error: err && err.message ? err.message : String(err) });
+  }
+});
+
+app.post(BASEURL + "/settings/appletv/device/:id/remove", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.redirect(302, BASEURL + "/logon");
+  }
+  await appleTvDevices.removeDevice(req.params.id);
+  await appleTvSidecar.syncDevices(await appleTvDevices.listEnabledDevices());
+  req.session.appleTvNotice = { ok: true, text: "Device removed." };
+  res.redirect(302, BASEURL + "/settings/appletv");
+});
+
+app.post(BASEURL + "/settings/appletv/device/:id/toggle", async (req, res) => {
+  if (loadedSettings.password !== undefined && !userData.valid) {
+    return res.redirect(302, BASEURL + "/logon");
+  }
+  const existing = await appleTvDevices.getDevice(req.params.id);
+  if (existing) {
+    await appleTvDevices.setDeviceEnabled(req.params.id, !existing.enabled);
+    await appleTvSidecar.syncDevices(await appleTvDevices.listEnabledDevices());
+  }
+  res.redirect(302, BASEURL + "/settings/appletv");
 });
 
 app.get(BASEURL + "/settings/cache/stats", (req, res) => {
@@ -6022,7 +5891,7 @@ app.post(
           return true;
         })        
   ],
-  (req, res) => {
+  async (req, res) => {
     //fields value holder. Also sets default values in form passed without them.
     let form = {
       password: req.body.password,
@@ -6079,6 +5948,7 @@ app.post(
       titleColour: req.body.titleColour ? req.body.titleColour : DEFAULT_SETTINGS.titleColour,
       footColour: req.body.footColour ? req.body.footColour : DEFAULT_SETTINGS.footColour,
       bgColour: req.body.bgColour ? req.body.bgColour : DEFAULT_SETTINGS.bgColour,
+      progressColour: req.body.progressColour ? req.body.progressColour : DEFAULT_SETTINGS.progressColour,
       enableNS: req.body.enableNS,
       nowPlayingEveryPosters: (() => {
         const raw = req.body.nowPlayingEveryPosters;
@@ -6086,8 +5956,8 @@ app.post(
         const n = parseInt(raw, 10);
         return isNaN(n) ? 0 : Math.max(0, n);
       })(),
-      enableNowShowingListInPoster: req.body.enableNowShowingListInPoster ? "true" : "false",
-      nowShowingListOnly: req.body.nowShowingListOnly ? "true" : "false",
+      // enableNowShowingListInPoster/nowShowingListOnly intentionally omitted: they belong to
+      // the separate "Now Showing" screen options form/route, not this one — see settings.js.
       nowShowingListEveryMins: (() => {
         const raw = req.body.nowShowingListEveryMins;
         if (raw === undefined || raw === null || raw === "") return 0;
@@ -6110,6 +5980,25 @@ app.post(
       showDirectors: req.body.showDirectors ? "true" : "false",
       showAuthors: req.body.showAuthors ? "true" : "false",
       showAlbumArtist: req.body.showAlbumArtist ? "true" : "false",
+      showMovieTagline: req.body.showMovieTagline ? "true" : "false",
+      showPillYear: req.body.showPillYear ? "true" : "false",
+      showPillGenre: req.body.showPillGenre ? "true" : "false",
+      showPillContentRating: req.body.showPillContentRating ? "true" : "false",
+      showPillRating: req.body.showPillRating ? "true" : "false",
+      showPillRuntime: req.body.showPillRuntime ? "true" : "false",
+      showPillResolution: req.body.showPillResolution ? "true" : "false",
+      showPillAudioCodec: req.body.showPillAudioCodec ? "true" : "false",
+      showPillNetwork: req.body.showPillNetwork ? "true" : "false",
+      showPillStudio: req.body.showPillStudio ? "true" : "false",
+      showPillLibrary: req.body.showPillLibrary ? "true" : "false",
+      showPillEpisode: req.body.showPillEpisode ? "true" : "false",
+      showPill3D: req.body.showPill3D ? "true" : "false",
+      showPillEndTime: req.body.showPillEndTime ? "true" : "false",
+      showPillPageCount: req.body.showPillPageCount ? "true" : "false",
+      showPillLeadCast: req.body.showPillLeadCast ? "true" : "false",
+      showPillUser: req.body.showPillUser ? "true" : "false",
+      showPillDevice: req.body.showPillDevice ? "true" : "false",
+      showPillIP: req.body.showPillIP ? "true" : "false",
       displayPosterAlbum: req.body.displayPosterAlbum ? "true" : "false",
       displayPosterVideo: req.body.displayPosterVideo ? "true" : "false",
       displayPosterBooks: req.body.displayPosterBooks ? "true" : "false",
@@ -6190,6 +6079,7 @@ app.post(
       triviaFrequency: req.body.triviaFrequency,
       enableAwtrix: req.body.enableAwtrix,
       awtrixIP: req.body.awtrixIP,
+      enableAppleTv: req.body.enableAppleTv,
       enableLinks: req.body.enableLinks,
       links: req.body.links,
       rotate: req.body.rotate,
@@ -6256,10 +6146,14 @@ app.post(
       });
     } else {
       // save settings
-      req.session.errors = errors;
+      // errors is [] here (validation passed) — [] is truthy in JS, so setting session.errors
+      // to it would wrongly flip the template into its "formData" render branch below, where
+      // every checkbox's string value ("true"/"false") is truthy and renders as checked
+      // regardless of its real value. null correctly signals "no errors, use saved settings".
+      req.session.errors = null;
       req.session.success = true;
       form.saved = true;
-      saveReset(form);
+      await saveReset(form);
       res.render("settings", {
         errors: req.session.errors,
         version: pjson.version,

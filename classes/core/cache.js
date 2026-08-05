@@ -5,6 +5,9 @@ const fsExtra = require("fs-extra");
 const util = require("./utility");
 const { IMAGE_CACHE_DIR, MP3_CACHE_DIR } = require("./appPaths");
 
+// fileName -> {primary, secondary} | null — see Cache.ExtractMusicGradientColors
+const musicGradientColorCache = new Map();
+
 /**
  * @desc Cache class manages the downloaad, cleanup and random selection of mp3 and poster image assets. Methods are static.
  * @returns nothing
@@ -145,6 +148,128 @@ class Cache {
       });
       ws.on("finish", () => resolve(true));
     });
+  }
+
+  /**
+   * ISO base media "ftyp" box brand sniff — true for HEIC/HEIF. tvOS's system Now Playing
+   * artwork (read via pyatv's Companion protocol) is sometimes served in this format even
+   * though callers save it with a .jpg name; Safari decodes HEIC natively so it looks fine
+   * there, but Chrome/Firefox/Chromium (incl. kiosk devices like a Raspberry Pi) render
+   * nothing at all for it.
+   */
+  static isHeic(buf) {
+    if (!buf || buf.length < 12) return false;
+    if (buf.toString("ascii", 4, 8) !== "ftyp") return false;
+    const brand = buf.toString("ascii", 8, 12);
+    return ["heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs", "mif1", "msf1"].includes(brand);
+  }
+
+  /**
+   * If the cached file at fileName is actually HEIC/HEIF (regardless of its .jpg extension),
+   * convert it to JPEG in place. No-ops (cheaply) for anything already in a browser-safe format.
+   * @param {string} fileName - relative to IMAGE_CACHE_DIR, as passed to CacheImage
+   * @returns {Promise<boolean>} true if a conversion happened
+   */
+  static async ConvertHeicIfNeeded(fileName) {
+    const filePath = path.join(IMAGE_CACHE_DIR, fileName);
+    try {
+      const buf = await fsExtra.readFile(filePath);
+      if (!Cache.isHeic(buf)) return false;
+      const heicConvert = require("heic-convert");
+      const jpegBuffer = await heicConvert({ buffer: buf, format: "JPEG", quality: 0.9 });
+      await fsExtra.writeFile(filePath, jpegBuffer);
+      return true;
+    } catch (e) {
+      console.log("ConvertHeicIfNeeded failed for " + fileName + ": " + e.message);
+      return false;
+    }
+  }
+
+  /**
+   * Apple Music-style "dynamic background": rather than blurring the artwork itself, extract
+   * a representative vibrant color from it and hand back a light/dark pair for a CSS gradient,
+   * plus the on-image position that color actually came from (so the gradient's focal point
+   * varies by artwork instead of every album fading toward the same fixed corner).
+   * Memoized in-process by fileName — the same cached cover art is re-rendered on every poll of
+   * a now-playing card, and decoding+scanning the image is too slow to repeat that often.
+   * @param {string} fileName - relative to IMAGE_CACHE_DIR, as passed to CacheImage
+   * @returns {Promise<{primary: string, secondary: string, x: number, y: number}|null>}
+   */
+  static async ExtractMusicGradientColors(fileName) {
+    if (musicGradientColorCache.has(fileName)) {
+      return musicGradientColorCache.get(fileName);
+    }
+    const filePath = path.join(IMAGE_CACHE_DIR, fileName);
+    let result = null;
+    try {
+      const { Jimp } = require("jimp");
+      const image = await Jimp.read(filePath);
+      image.resize({ w: 32, h: 32 });
+      const { data, width, height } = image.bitmap;
+
+      // Quantize to 16 levels/channel (4 bits) so near-identical pixels group into the same
+      // bucket, then pick the bucket that's both saturated and reasonably prevalent — this
+      // favors a color that actually characterizes the artwork's mood over whichever single
+      // pixel happens to be most saturated, or a near-black/near-white color that just
+      // happens to cover the most pixels (letterboxing, plain backgrounds). Also tracks each
+      // bucket's average (x, y) so the winning color's actual position in the artwork can
+      // become the gradient's focal point, instead of a fixed spot every album fades toward.
+      const buckets = new Map();
+      for (let i = 0; i < width * height; i++) {
+        const idx = i * 4;
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        const key = (r >> 4) + "," + (g >> 4) + "," + (b >> 4);
+        const x = i % width;
+        const y = Math.floor(i / width);
+        const bucket = buckets.get(key);
+        if (bucket) {
+          bucket.r += r; bucket.g += g; bucket.b += b; bucket.x += x; bucket.y += y; bucket.count += 1;
+        } else {
+          buckets.set(key, { r, g, b, x, y, count: 1 });
+        }
+      }
+
+      let best = null;
+      let bestScore = -1;
+      let fallback = null;
+      let fallbackCount = -1;
+      for (const bucket of buckets.values()) {
+        const r = bucket.r / bucket.count;
+        const g = bucket.g / bucket.count;
+        const b = bucket.b / bucket.count;
+        const x = bucket.x / bucket.count;
+        const y = bucket.y / bucket.count;
+        if (bucket.count > fallbackCount) {
+          fallbackCount = bucket.count;
+          fallback = { r, g, b, x, y };
+        }
+        const maxN = Math.max(r, g, b) / 255;
+        const minN = Math.min(r, g, b) / 255;
+        const lightness = (maxN + minN) / 2;
+        if (lightness < 0.08 || lightness > 0.92) continue;
+        const saturation = maxN === minN ? 0 : (maxN - minN) / (1 - Math.abs(2 * lightness - 1));
+        const score = saturation * Math.sqrt(bucket.count);
+        if (score > bestScore) {
+          bestScore = score;
+          best = { r, g, b, x, y };
+        }
+      }
+      const chosen = best || fallback;
+      if (chosen) {
+        const primary = `rgb(${Math.round(chosen.r)}, ${Math.round(chosen.g)}, ${Math.round(chosen.b)})`;
+        const secondary = `rgb(${Math.round(chosen.r * 0.28)}, ${Math.round(chosen.g * 0.28)}, ${Math.round(chosen.b * 0.28)})`;
+        // Clamped to 15-85% so the focal point never sits exactly on an edge/corner, which
+        // would make the gradient look lopsided or clipped rather than a soft glow.
+        const x = Math.round(Math.min(85, Math.max(15, (chosen.x / width) * 100)));
+        const y = Math.round(Math.min(85, Math.max(15, (chosen.y / height) * 100)));
+        result = { primary, secondary, x, y };
+      }
+    } catch (e) {
+      console.log("ExtractMusicGradientColors failed for " + fileName + ": " + e.message);
+      result = null;
+    }
+    musicGradientColorCache.set(fileName, result);
+    return result;
   }
 
   // not implemented yet!

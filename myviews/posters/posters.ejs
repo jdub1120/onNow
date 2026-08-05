@@ -156,6 +156,11 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
   var connOk = true;
   var sleeping = false;
   var getCardsPath = "<%=baseUrl%>/getcards";
+  // Re-poll cadence while a single Now Playing/Now Screening card is showing. Independent of
+  // slideDuration (which paces on-demand slide rotation and can be set as high as 20-30s) —
+  // the server itself only refreshes from the media server / Apple TV sidecar every ~10s, so
+  // this stays close to that rather than adding its own multi-second delay on top.
+  var NOW_PLAYING_POLL_MS = 5000;
   var getCardsRetryTimer = null;
   var getCardsFailCount = 0;
   function resolveGetCardsPath() {
@@ -170,6 +175,45 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
   var curPlayID = 1;
   var pauseDetect = false;
   var originalTagline;
+  // Identity of the last single-card poll, so an unchanged "now playing" card can be patched
+  // in place (progress bar / end time only) instead of a full DOM rebuild that visibly
+  // flashes the poster/backdrop images every poll.
+  var lastSingleCardKey = null;
+
+  function singleCardKey(card) {
+    return [card.title, card.posterURL, card.posterArtURL, card.episodeName].join("|");
+  }
+
+  // Patches just the progress bar and time/runtime badges of an already-displayed single
+  // card, leaving the poster/backdrop <div>s untouched so their background-image doesn't
+  // get torn down and reloaded on every poll.
+  function patchSingleCardInPlace(renderedHtml) {
+    var temp = document.createElement("div");
+    temp.innerHTML = renderedHtml;
+
+    var newBar = temp.querySelector(".progress-bar");
+    var liveBar = document.querySelector("#progress1 .progress-bar");
+    if (newBar && liveBar) {
+      liveBar.style.width = newBar.style.width;
+      var valNow = newBar.getAttribute("aria-valuenow");
+      if (valNow != null) liveBar.setAttribute("aria-valuenow", valNow);
+    }
+
+    var newTagDetails = temp.querySelector(".tagDetails");
+    var liveTagDetails = document.querySelector("#bottomBanner1 .tagDetails");
+    if (newTagDetails && liveTagDetails) {
+      liveTagDetails.innerHTML = newTagDetails.innerHTML;
+    }
+
+    // Play/pause toggling alone doesn't change title/posterURL/posterArtURL/episodeName, so
+    // singleCardKey() stays the same and this patch-in-place path runs instead of a full
+    // rebuild — sync the equalizer icon's paused state explicitly or it'd never stop animating.
+    var newEqIcon = temp.querySelector(".eqIcon");
+    var liveEqIcon = document.querySelector(".eqIcon");
+    if (newEqIcon && liveEqIcon) {
+      liveEqIcon.classList.toggle("paused", newEqIcon.classList.contains("paused"));
+    }
+  }
 
   function openNav() {
     document.getElementById("myNav").style.width = "100%";
@@ -182,7 +226,7 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
 
   function noConnection() {
     cardHtml = `<div class="container d-flex align-items-center justify-content-center no-content"><div class="d-flex">
-      <div class="settingsLink">Lost connectivity with PosterX server!</br>Attempting to restore connection..</div></div></div>`
+      <div class="settingsLink">Lost connectivity with OnNow server!</br>Attempting to restore connection..</div></div></div>`
     $(".cardHolder").html(cardHtml);    
     $("body").css("background-color","black");
   }
@@ -331,17 +375,33 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
         sleeping !== true
       ) {
         getCardsFailCount = 0;
-        let cardHtml = "";
-        posterr.globalPage.cards.forEach(card => {
-          cardHtml += card.rendered;
-        });
 
-        $(".cardHolder").html(cardHtml);
-        initialLoad();
-
-        // check if there is only one card showing and if so, schedule a data refresh after the slide duration period has passed.
-        if(posterr.globalPage.cards.length == 1){
-          setTimeout( getCards, posterr.globalPage.slideDuration );
+        // Single unchanged card (e.g. one now-playing session): patch progress/time in
+        // place rather than rebuilding the DOM, so the poster/backdrop images don't
+        // flash on every poll.
+        if (posterr.globalPage.cards.length === 1) {
+          const card = posterr.globalPage.cards[0];
+          const key = singleCardKey(card);
+          if (lastSingleCardKey !== null && lastSingleCardKey === key) {
+            patchSingleCardInPlace(card.rendered);
+          } else {
+            $(".cardHolder").html(card.rendered);
+            initialLoad();
+          }
+          lastSingleCardKey = key;
+          // A single card means something's actively playing (Now Playing/Now Screening) —
+          // re-poll on a fast, fixed cadence rather than reusing slideDuration (meant to pace
+          // on-demand slide rotation, and user-configurable up to 20-30s). At 30s, a track
+          // change on a ~3 minute song sat stale for an uncomfortably large fraction of it.
+          setTimeout( getCards, NOW_PLAYING_POLL_MS );
+        } else {
+          lastSingleCardKey = null;
+          let cardHtml = "";
+          posterr.globalPage.cards.forEach(card => {
+            cardHtml += card.rendered;
+          });
+          $(".cardHolder").html(cardHtml);
+          initialLoad();
         }
       }
       else {
@@ -609,23 +669,32 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
     var ar = parseFloat($('#poster' + id + 'AR').text());
     var progressOffset;
 
-    // Calculate poster width for progress indicator and top offset position
+    // Calculate poster width for progress indicator and top offset position.
+    // Album/track art (ar === 1, square) uses the same effective width as a typical movie
+    // poster (ar 1.47) rather than being allowed to stretch to the full container width —
+    // otherwise a square cover ends up visually much wider/heavier than the movie posters it
+    // rotates alongside, since background-size:contain has nothing narrower to fit against.
+    var isSquareArt = (ar === 1);
+    var isSportsArt = (ar === 0.5);
+    var effectiveAr = isSquareArt ? 1.47 : ar;
+    // Music art runs noticeably smaller than a movie/TV poster's usual ~84%-of-height sizing —
+    // unlike a movie poster there's no dense artwork/typography that needs the extra size to
+    // stay legible, and on a large TV the full-size version reads as oversized.
+    var musicHeight = window.innerHeight * .62;
     switch (ar) {
       case 1: // album art
-        if(midWidth >= midHeight){
-          posterHeight = midHeight;
-          posterWidth = midHeight;
-          progressOffset = 0;
-        }
-        else {
-          posterHeight = midWidth;
-          posterWidth = midWidth;
-          progressOffset = (midHeight - posterHeight) / 2;
-        }
+        posterHeight = musicHeight;
+        posterWidth = musicHeight / effectiveAr;
+        progressOffset = 0;
         break;
       case 1.47: // Most movie / tv posters
         posterHeight = midHeight;
-        posterWidth = midHeight / ar;
+        posterWidth = midHeight / effectiveAr;
+        progressOffset = 0;
+        break;
+      case 0.5: // Sports matchup card — wide format, sized off viewport width, not height
+        posterWidth = window.innerWidth * .7;
+        posterHeight = posterWidth * ar;
         progressOffset = 0;
         break;
       default: // default to less used movie/tv poster size (often 1.5, but 1.47 still ok to use)
@@ -637,13 +706,253 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
 
     if (posterWidth > 0) {
       $('.quiz').width(posterWidth * .90);
-      if ($('#progress' + id).hasClass('hidden')) {
-      } else {
-        $('#progress' + id).css({
-          'width': posterWidth + 'px',
-          'position': 'relative',
-          'top': progressOffset + 'px'
+      var posterEl = $('#poster' + id);
+      var musicInfoEl = $('#musicInfo' + id);
+      var sportsInfoEl = $('#sportsInfo' + id);
+      var progressEl = $('#progress' + id);
+      var progressVisible = !progressEl.hasClass('hidden');
+      // Square art: the CSS box itself is full-width by default (background-size:contain has
+      // no narrower box to work with), so constrain and center it to actually match the
+      // narrower footprint just calculated above. Clamp to the viewport width first — the
+      // base .poster rule has max-width:100%, so on a display narrow enough that the "movie
+      // poster width" math itself exceeds the viewport, CSS would clip the width but a
+      // margin-left computed from the unclamped value would still shift the box off-center.
+      // On slower devices (e.g. Raspberry Pi kiosk browsers) this can run before the page's
+      // own layout has settled, so window.innerWidth can transiently read back 0 — clamping
+      // against that would set width:0px and make the whole poster invisible (no poster, no
+      // backdrop). Only clamp against midWidth when it's a sane, positive value; otherwise
+      // just use the computed posterWidth unclamped rather than risk a zero-width box.
+      // Capped at 86% (not 100%) of the viewport — on a narrow/portrait display the
+      // height-based posterWidth can exceed the screen width, and clamping straight to 100%
+      // made the art stretch edge-to-edge with no margin instead of keeping the same
+      // poster-like proportions it has on a wide/landscape display.
+      var clampedWidth = midWidth > 0 ? Math.min(posterWidth, midWidth * .86) : posterWidth;
+      posterEl.toggleClass('squareArt', isSquareArt);
+      if (isSquareArt) {
+        // Music: artwork + title/artist caption + progress bar are one visual group, centered
+        // together both horizontally and vertically on screen — not anchored to the normal
+        // 8%-92% poster band (which no longer applies here; hideTitle/hideFooter are forced on
+        // for music in MediaCard.js, and .fullscreen's own top/height are skipped for music
+        // specifically so they don't fight these inline styles via !important).
+        var gap = Math.max(8, Math.round(clampedWidth * .04));
+
+        var titleSize = Math.max(14, Math.round(clampedWidth * .051));
+        var artistSize = Math.max(13, Math.round(clampedWidth * .044));
+        if (musicInfoEl.length) {
+          musicInfoEl.removeClass('hidden').css({
+            'left': '50%',
+            'width': clampedWidth + 'px',
+            'margin-left': (-clampedWidth / 2) + 'px'
+          });
+          musicInfoEl.find('.musicTitle').css('font-size', titleSize + 'px');
+          musicInfoEl.find('.musicArtist').css('font-size', artistSize + 'px');
+          // Bootstrap's .badge sizes itself off the inherited font-size (relative %), which
+          // otherwise falls back to the page default instead of scaling with everything else
+          // in this group across very different screen sizes (small test window vs. large TV).
+          musicInfoEl.find('.musicDevicePill').css('font-size', artistSize + 'px');
+        }
+        // Measured after font-size/width are set so it reflects actual wrapped/ellipsized height.
+        var captionHeight = musicInfoEl.length ? musicInfoEl.outerHeight() : 0;
+
+        if (progressVisible) {
+          progressEl.css({
+            'width': clampedWidth + 'px',
+            'left': '50%',
+            'margin-left': (-clampedWidth / 2) + 'px'
+          });
+        }
+        var progressHeight = progressVisible ? progressEl.outerHeight() : 0;
+
+        var groupHeight = clampedWidth +
+          (captionHeight > 0 ? gap + captionHeight : 0) +
+          (progressHeight > 0 ? gap + progressHeight : 0);
+        var groupTop = Math.max(0, (window.innerHeight - groupHeight) / 2);
+
+        posterEl.css({
+          'top': groupTop + 'px',
+          'width': clampedWidth + 'px',
+          'height': clampedWidth + 'px',
+          'left': '50%',
+          'margin-left': (-clampedWidth / 2) + 'px',
+          // Scaled off the artwork's actual rendered size rather than a fixed px value — a
+          // fixed radius/shadow looks right at a small test resolution but reads as
+          // barely-there on a large/high-res TV where the box itself renders far bigger.
+          'border-radius': Math.round(clampedWidth * .05) + 'px',
+          'box-shadow': '0 ' + Math.round(clampedWidth * .06) + 'px ' + Math.round(clampedWidth * .18) + 'px rgba(0, 0, 0, 0.3)'
         });
+
+        var cursorTop = groupTop + clampedWidth;
+        if (musicInfoEl.length) {
+          cursorTop += gap;
+          musicInfoEl.css({ 'position': 'fixed', 'top': cursorTop + 'px' });
+          cursorTop += captionHeight;
+        }
+        if (progressVisible) {
+          cursorTop += gap;
+          progressEl.css({ 'position': 'fixed', 'top': cursorTop + 'px' });
+        }
+      } else if (isSportsArt) {
+        // Sports: two team logos floating on the diagonal gradient background — no boxed
+        // panel. Away (left) logo sits higher, home (right) logo sits lower, echoing the
+        // 45° gradient direction; "VS" sits at the midpoint between their centers. Caption
+        // (title/network/LIVE) follows below. Whole group is centered on screen, same
+        // approach as the music layout. No progress bar — there's no meaningful runtime.
+        var sportsAwayLogoEl = $('#sportsLogoAway' + id);
+        var sportsHomeLogoEl = $('#sportsLogoHome' + id);
+        var sportsVsEl = $('#sportsVs' + id);
+        var sportsGameStateEl = $('#sportsGameState' + id);
+        var sportsBasesEl = $('#sportsBases' + id);
+
+        var groupWidth = Math.min(window.innerWidth * .82, window.innerHeight * 1.6);
+        var logoSize = groupWidth * .3;
+        var verticalOffset = logoSize * .35; // how much lower the home logo sits than the away logo
+        var sportsGap = Math.max(8, Math.round(groupWidth * .025));
+        var sportsTitleSize = Math.max(14, Math.round(groupWidth * .034));
+        var sportsNetworkSize = Math.max(12, Math.round(groupWidth * .026));
+        var sportsBadgeSize = Math.max(11, Math.round(groupWidth * .022));
+        var sportsVsSize = Math.max(16, Math.round(logoSize * .15));
+
+        // Local (group-relative) coordinates first, then shifted down by groupTop once the
+        // total height (including caption) is known, so the whole thing centers vertically.
+        var awayCenterXLocal = -groupWidth * .25;
+        var homeCenterXLocal = groupWidth * .25;
+        var awayTopLocal = 0;
+        var homeTopLocal = verticalOffset;
+        var logosBottomLocal = homeTopLocal + logoSize; // home is lower, so its bottom is the lowest point
+
+        if (sportsInfoEl.length) {
+          sportsInfoEl.removeClass('hidden').css({
+            'left': '50%',
+            'width': groupWidth + 'px',
+            'margin-left': (-groupWidth / 2) + 'px'
+          });
+          sportsInfoEl.find('.sportsMatchupTitle').css('font-size', sportsTitleSize + 'px');
+          sportsInfoEl.find('.sportsNetwork').css('font-size', sportsNetworkSize + 'px');
+          sportsInfoEl.find('.sportsLiveBadge').css('font-size', sportsBadgeSize + 'px');
+          sportsInfoEl.find('.musicDevicePill').css('font-size', sportsNetworkSize + 'px');
+        }
+        var sportsCaptionHeight = sportsInfoEl.length ? sportsInfoEl.outerHeight() : 0;
+
+        var sportsGroupHeight = logosBottomLocal + (sportsCaptionHeight > 0 ? sportsGap + sportsCaptionHeight : 0);
+        var sportsGroupTop = Math.max(0, (window.innerHeight - sportsGroupHeight) / 2);
+        var groupCenterX = window.innerWidth / 2;
+
+        // No boxed panel for sports — the logos float directly on the gradient — so the
+        // poster element itself carries no visible box styling (unlike music's rounded/
+        // shadowed square art box).
+        posterEl.css({ 'border-radius': '', 'box-shadow': '' });
+
+        sportsAwayLogoEl.removeClass('hidden').css({
+          'width': logoSize + 'px',
+          'height': logoSize + 'px',
+          'left': (groupCenterX + awayCenterXLocal) + 'px',
+          'margin-left': (-logoSize / 2) + 'px',
+          'top': (sportsGroupTop + awayTopLocal) + 'px'
+        });
+        sportsHomeLogoEl.removeClass('hidden').css({
+          'width': logoSize + 'px',
+          'height': logoSize + 'px',
+          'left': (groupCenterX + homeCenterXLocal) + 'px',
+          'margin-left': (-logoSize / 2) + 'px',
+          'top': (sportsGroupTop + homeTopLocal) + 'px'
+        });
+
+        // Rebuild the background gradient from the logos' actual on-screen positions rather
+        // than the server-rendered fixed 40%/60% stops (tuned for one specific aspect ratio) —
+        // see the comment on this element's data-away-color/data-home-color attributes in
+        // MediaCard.js for why that broke on displays whose aspect ratio makes the centered
+        // logo group narrower relative to the screen than it was in testing.
+        var posterArtEl = $('#' + id + ' .posterArt');
+        var awayColorAttr = posterArtEl.attr('data-away-color');
+        var homeColorAttr = posterArtEl.attr('data-home-color');
+        if (awayColorAttr && homeColorAttr) {
+          var awayRightPct = (groupCenterX + awayCenterXLocal + logoSize / 2) / window.innerWidth * 100;
+          var homeLeftPct = (groupCenterX + homeCenterXLocal - logoSize / 2) / window.innerWidth * 100;
+          // Keep a minimum gap even if the logos end up touching/overlapping at extreme aspect
+          // ratios, and clamp to a sane range so the stops stay in ascending order.
+          if (homeLeftPct - awayRightPct < 4) {
+            var mid = (awayRightPct + homeLeftPct) / 2;
+            awayRightPct = mid - 2;
+            homeLeftPct = mid + 2;
+          }
+          // Soften the blend by widening the transition zone outward from the gap's edges
+          // (rather than the hard-ish cutoff right at the logos), while still keeping it
+          // roughly centered between them so it doesn't wash back under either logo.
+          var soften = (homeLeftPct - awayRightPct) * .55;
+          awayRightPct -= soften;
+          homeLeftPct += soften;
+          awayRightPct = Math.max(0, Math.min(100, awayRightPct));
+          homeLeftPct = Math.max(0, Math.min(100, homeLeftPct));
+          posterArtEl.css('background-image',
+            'linear-gradient(135deg, ' + awayColorAttr + ' 0%, ' + awayColorAttr + ' ' + awayRightPct + '%, ' +
+            homeColorAttr + ' ' + homeLeftPct + '%, ' + homeColorAttr + ' 100%)');
+        }
+
+        var vsCenterYLocal = (awayTopLocal + logoSize / 2 + homeTopLocal + logoSize / 2) / 2;
+
+        // Base-runner diamond sits above the score — MLB only, so this no-ops via jQuery's
+        // empty-selection guard when the element wasn't rendered.
+        if (sportsBasesEl.length) {
+          var sportsBasesSize = Math.max(12, Math.round(logoSize * .09));
+          sportsBasesEl.removeClass('hidden').css({ 'font-size': sportsBasesSize + 'px' });
+          var basesWidth = sportsBasesEl.outerWidth();
+          var basesHeight = sportsBasesEl.outerHeight();
+          var basesBottom = sportsGroupTop + vsCenterYLocal - sportsVsSize * .7 - sportsGap * .6;
+          sportsBasesEl.css({
+            'left': groupCenterX + 'px',
+            'margin-left': (-basesWidth / 2) + 'px',
+            'top': (basesBottom - basesHeight) + 'px'
+          });
+        }
+
+        // Wider than plain "VS" needs, to comfortably fit a score like "12 - 8" once the game
+        // starts (see MediaCard.js) without wrapping.
+        sportsVsEl.removeClass('hidden').css({
+          'font-size': sportsVsSize + 'px',
+          'left': groupCenterX + 'px',
+          'margin-left': (-groupWidth * .1) + 'px',
+          'width': (groupWidth * .2) + 'px',
+          // The extra -8px nudges the score up a bit without touching vsCenterYLocal itself
+          // (the inning row below is positioned from that same variable, so this keeps it
+          // exactly where it was).
+          'top': (sportsGroupTop + vsCenterYLocal - 4) + 'px',
+          'margin-top': (-sportsVsSize * .7) + 'px'
+        });
+
+        // Inning + outs dots directly under the score — MLB only, so this no-ops via jQuery's
+        // empty-selection guard when the element wasn't rendered.
+        if (sportsGameStateEl.length) {
+          var sportsInningSize = Math.max(13, Math.round(logoSize * .075));
+          sportsGameStateEl.removeClass('hidden').css({
+            'font-size': Math.max(10, Math.round(logoSize * .05)) + 'px',
+            'left': groupCenterX + 'px'
+          });
+          sportsGameStateEl.find('.sportsInningRow').css('font-size', sportsInningSize + 'px');
+          var gameStateWidth = sportsGameStateEl.outerWidth();
+          var gameStateTop = sportsGroupTop + vsCenterYLocal + sportsVsSize * .5 + sportsGap * .6;
+          sportsGameStateEl.css({
+            'margin-left': (-gameStateWidth / 2) + 'px',
+            'top': gameStateTop + 'px'
+          });
+        }
+
+        if (sportsInfoEl.length) {
+          sportsInfoEl.css({ 'position': 'fixed', 'top': (sportsGroupTop + logosBottomLocal + sportsGap) + 'px' });
+        }
+      } else {
+        posterEl.css({ 'top': '', 'width': '', 'height': '', 'left': '', 'margin-left': '', 'border-radius': '', 'box-shadow': '' });
+        if (musicInfoEl.length) musicInfoEl.addClass('hidden');
+        if (sportsInfoEl.length) sportsInfoEl.addClass('hidden');
+        $('#sportsLogoAway' + id + ', #sportsLogoHome' + id + ', #sportsVs' + id + ', #sportsGameState' + id + ', #sportsBases' + id).addClass('hidden');
+        if (progressVisible) {
+          progressEl.css({
+            'width': posterWidth + 'px',
+            'position': 'relative',
+            'top': progressOffset + 'px',
+            'left': '',
+            'margin-left': ''
+          });
+        }
       }
     }
   }

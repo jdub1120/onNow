@@ -35,26 +35,12 @@ class globalPage {
 
   /**
    * @desc Takes merged mediaCard set and applies card order number and active card slide, then generates the rendered HTML for each media card.
+   * @param {string} baseUrl
+   * @param {object} renderOptions - passed through as-is to each card's Render() (hasArt, hideTitle,
+   *   hideFooter, showCast/Directors/Authors/AlbumArtist, displayPoster*, showPill* — see MediaCard.Render)
    * @returns nothing
    */
-  async OrderAndRenderCards(
-    baseUrl,
-    hasArt,
-    hideTitle,
-    hideFooter,
-    showCast,
-    showDirectors,
-    showAuthors,
-    showAlbumArtist,
-    displayPosterAlbum,
-    displayPosterVideo,
-    displayPosterBooks,
-    displayPosterActor,
-    displayPosterActress,
-    displayPosterDirector,
-    displayPosterAuthor,
-    displayPosterArtist
-  ) {
+  async OrderAndRenderCards(baseUrl, renderOptions) {
     if (this.cards.length != 0) {
       for (let i = 0; i < this.cards.length; i++) {
         const card = this.cards[i];
@@ -64,24 +50,7 @@ class globalPage {
       // Parallel render: each card builds its own HTML; order is already fixed by ID.
       await Promise.all(
         this.cards.map((card) =>
-          card.Render(
-            hasArt,
-            baseUrl,
-            hideTitle,
-            hideFooter,
-            showCast,
-            showDirectors,
-            showAuthors,
-            showAlbumArtist,
-            displayPosterAlbum,
-            displayPosterVideo,
-            displayPosterBooks,
-            displayPosterActor,
-            displayPosterActress,
-            displayPosterDirector,
-            displayPosterAuthor,
-            displayPosterArtist
-          )
+          card.Render({ ...renderOptions, baseUrl })
         )
       );
     }

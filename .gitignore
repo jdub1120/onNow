@@ -22,3 +22,17 @@
 /config/custom-pictures/**
 !/config/custom-pictures/.keep
 !/config/custom-pictures/default/.keep
+
+# Local dev-only Apple TV sidecar venv (Docker builds its own; see Dockerfile)
+/.appletv-venv/
+
+# Runtime data — personal library/poster metadata, holiday cache, now-showing list, and the
+# single-instance lock file. Never meant to be committed; historical tracking in this repo's
+# git history predates this rule and is being cleaned up.
+/config/*.db
+/config/posterr-app.lock
+
+# Python bytecode cache (Apple TV sidecar) and one-off local script output
+__pycache__/
+*.pyc
+/scripts/plex_poster_fix_summary.json

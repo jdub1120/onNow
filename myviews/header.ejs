@@ -2,7 +2,7 @@
 <html lang="en">
 <!--
 ***********************************************************
-* PosterX - Your home media display                        *
+* OnNow - Your home media display                        *
 * Developed by Matt Petersen - Brisbane, Australia        *
 ***********************************************************
 -->
@@ -48,7 +48,11 @@
     <style>.bannerBigText { color: <%=globals.titleColour%>; }</style>
   <%}%>
 
-  <title>PosterX</title>
+  <%if(globals.progressColour !== undefined && globals.progressColour !== "" ){%>
+    <style>.progress-bar { background-color: <%=globals.progressColour%>; }</style>
+  <%}%>
+
+  <title>OnNow</title>
   <link rel="shortcut icon" type="image/png" href="<%=baseUrl%>/favicons/favicon.ico"/>
 </head>
 <body>

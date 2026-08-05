@@ -364,3 +364,40 @@ body{margin-top:20px;
     .general > a:hover {
       color: #ebf0fa;
     }
+
+    /* Mobile icon tab bar (Settings/Sync/Cache/Apple TV/etc.): scroll horizontally instead of
+       wrapping to a second row, which pushed content down and cut icons off awkwardly. */
+    .card-header.d-flex.d-md-none {
+      height: auto;
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+    .card-header-tabs.nav-tabs {
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      overflow-x: auto;
+      /* overflow-y left at its default (visible) — hiding it clipped the icons themselves,
+         since the row's content is slightly taller than a tightly-fit container. */
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 4px;
+    }
+    .card-header-tabs.nav-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    .card-header-tabs.nav-tabs .nav-item {
+      flex: 0 0 auto;
+      align-self: flex-start;
+    }
+    .card-header-tabs.nav-tabs .nav-link.has-icon {
+      height: auto;
+      align-self: flex-start;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    /* The theme floats .has-icon's <i> right (for icon+text layouts elsewhere) — these mobile
+       tab links are icon-only, so the float pulls the icon out of flow entirely and the link's
+       box collapses to just its padding, leaving the icon overflowing below uncontained. */
+    .card-header-tabs.nav-tabs .nav-link.has-icon i {
+      float: none;
+    }

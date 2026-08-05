@@ -4,12 +4,16 @@ const DEFAULT_SETTINGS = require("../../consts");
 const util = require("../core/utility");
 const { requiresMediaServerCredential } = require("../mediaservers/mediaServerFactory");
 
-/** Normalize form/JSON values to "true" | "false" for settings file (checkboxes, toggles). */
-function toSettingsBoolStr(value, fallback) {
-  if (value === undefined || value === null || value === "") {
-    if (fallback === undefined || fallback === null) return "false";
-    return fallback === true || fallback === "true" ? "true" : "false";
-  }
+/**
+ * Normalize form/JSON values to "true" | "false" for settings file (checkboxes, toggles).
+ * SaveSettingsJSON is only ever called from the one comprehensive settings form (checked
+ * here via `git grep SaveSettingsJSON`), so an absent value always means "checkbox left
+ * unchecked" — never "field not part of this submission" — and must resolve to "false",
+ * not fall back to whatever was previously saved. (A second "fallback" argument used to be
+ * accepted here and callers still pass one; it's intentionally ignored now, since that
+ * fallback-to-old-value behavior was the bug: unchecking a box and saving silently kept it on.)
+ */
+function toSettingsBoolStr(value) {
   if (value === true || value === "true" || value === "on" || value === 1 || value === "1")
     return "true";
   return "false";
@@ -57,6 +61,25 @@ class Settings {
     this.showDirectors = DEFAULT_SETTINGS.showDirectors;
     this.showAuthors = DEFAULT_SETTINGS.showAuthors;
     this.showAlbumArtist = DEFAULT_SETTINGS.showAlbumArtist;
+    this.showMovieTagline = DEFAULT_SETTINGS.showMovieTagline;
+    this.showPillYear = DEFAULT_SETTINGS.showPillYear;
+    this.showPillGenre = DEFAULT_SETTINGS.showPillGenre;
+    this.showPillContentRating = DEFAULT_SETTINGS.showPillContentRating;
+    this.showPillRating = DEFAULT_SETTINGS.showPillRating;
+    this.showPillRuntime = DEFAULT_SETTINGS.showPillRuntime;
+    this.showPillResolution = DEFAULT_SETTINGS.showPillResolution;
+    this.showPillAudioCodec = DEFAULT_SETTINGS.showPillAudioCodec;
+    this.showPillNetwork = DEFAULT_SETTINGS.showPillNetwork;
+    this.showPillStudio = DEFAULT_SETTINGS.showPillStudio;
+    this.showPillLibrary = DEFAULT_SETTINGS.showPillLibrary;
+    this.showPillEpisode = DEFAULT_SETTINGS.showPillEpisode;
+    this.showPill3D = DEFAULT_SETTINGS.showPill3D;
+    this.showPillEndTime = DEFAULT_SETTINGS.showPillEndTime;
+    this.showPillPageCount = DEFAULT_SETTINGS.showPillPageCount;
+    this.showPillLeadCast = DEFAULT_SETTINGS.showPillLeadCast;
+    this.showPillUser = DEFAULT_SETTINGS.showPillUser;
+    this.showPillDevice = DEFAULT_SETTINGS.showPillDevice;
+    this.showPillIP = DEFAULT_SETTINGS.showPillIP;
     this.displayPosterAlbum = DEFAULT_SETTINGS.displayPosterAlbum;
     this.displayPosterVideo = DEFAULT_SETTINGS.displayPosterVideo;
     this.displayPosterBooks = DEFAULT_SETTINGS.displayPosterBooks;
@@ -81,6 +104,7 @@ class Settings {
     this.titleColour = DEFAULT_SETTINGS.titleColour;
     this.footColour = DEFAULT_SETTINGS.footColour;
     this.bgColour = DEFAULT_SETTINGS.bgColour;
+    this.progressColour = DEFAULT_SETTINGS.progressColour;
     this.enableNS = DEFAULT_SETTINGS.enableNS;
     this.nowPlayingEveryPosters = DEFAULT_SETTINGS.nowPlayingEveryPosters;
     this.enableNowShowingListInPoster = DEFAULT_SETTINGS.enableNowShowingListInPoster;
@@ -145,6 +169,8 @@ class Settings {
     this.links = DEFAULT_SETTINGS.links;
     this.enableAwtrix = DEFAULT_SETTINGS.enableAwtrix;
     this.awtrixIP = DEFAULT_SETTINGS.awtrixIP;
+    this.enableAppleTv = DEFAULT_SETTINGS.enableAppleTv;
+    this.appleTvSidecarPort = DEFAULT_SETTINGS.appleTvSidecarPort;
     this.enableLinks = DEFAULT_SETTINGS.enableLinks;
     this.links = DEFAULT_SETTINGS.links;
     this.rotate = DEFAULT_SETTINGS.rotate;
@@ -311,6 +337,8 @@ class Settings {
       if(readSettings.enableLinks==undefined) readSettings.enableLinks = 'false';
       if(readSettings.recentlyAddedDays==undefined) readSettings.recentlyAddedDays = 0;
       if(readSettings.enableAwtrix==undefined) readSettings.enableAwtrix = 'false';
+      if(readSettings.enableAppleTv==undefined) readSettings.enableAppleTv = 'false';
+      if(readSettings.appleTvSidecarPort==undefined) readSettings.appleTvSidecarPort = DEFAULT_SETTINGS.appleTvSidecarPort;
       if(readSettings.rotate==undefined) readSettings.rotate = 'false';
       if(readSettings.mediaServerType==undefined) readSettings.mediaServerType = 'plex';
       if(readSettings.bookArrKind==undefined) readSettings.bookArrKind = 'readarr';
@@ -318,6 +346,25 @@ class Settings {
       if(readSettings.showDirectors==undefined) readSettings.showDirectors = 'false';
       if(readSettings.showAuthors==undefined) readSettings.showAuthors = 'false';
       if(readSettings.showAlbumArtist==undefined) readSettings.showAlbumArtist = 'false';
+      if(readSettings.showMovieTagline==undefined) readSettings.showMovieTagline = DEFAULT_SETTINGS.showMovieTagline;
+      if(readSettings.showPillYear==undefined) readSettings.showPillYear = DEFAULT_SETTINGS.showPillYear;
+      if(readSettings.showPillGenre==undefined) readSettings.showPillGenre = DEFAULT_SETTINGS.showPillGenre;
+      if(readSettings.showPillContentRating==undefined) readSettings.showPillContentRating = DEFAULT_SETTINGS.showPillContentRating;
+      if(readSettings.showPillRating==undefined) readSettings.showPillRating = DEFAULT_SETTINGS.showPillRating;
+      if(readSettings.showPillRuntime==undefined) readSettings.showPillRuntime = DEFAULT_SETTINGS.showPillRuntime;
+      if(readSettings.showPillResolution==undefined) readSettings.showPillResolution = DEFAULT_SETTINGS.showPillResolution;
+      if(readSettings.showPillAudioCodec==undefined) readSettings.showPillAudioCodec = DEFAULT_SETTINGS.showPillAudioCodec;
+      if(readSettings.showPillNetwork==undefined) readSettings.showPillNetwork = DEFAULT_SETTINGS.showPillNetwork;
+      if(readSettings.showPillStudio==undefined) readSettings.showPillStudio = DEFAULT_SETTINGS.showPillStudio;
+      if(readSettings.showPillLibrary==undefined) readSettings.showPillLibrary = DEFAULT_SETTINGS.showPillLibrary;
+      if(readSettings.showPillEpisode==undefined) readSettings.showPillEpisode = DEFAULT_SETTINGS.showPillEpisode;
+      if(readSettings.showPill3D==undefined) readSettings.showPill3D = DEFAULT_SETTINGS.showPill3D;
+      if(readSettings.showPillEndTime==undefined) readSettings.showPillEndTime = DEFAULT_SETTINGS.showPillEndTime;
+      if(readSettings.showPillPageCount==undefined) readSettings.showPillPageCount = DEFAULT_SETTINGS.showPillPageCount;
+      if(readSettings.showPillLeadCast==undefined) readSettings.showPillLeadCast = DEFAULT_SETTINGS.showPillLeadCast;
+      if(readSettings.showPillUser==undefined) readSettings.showPillUser = DEFAULT_SETTINGS.showPillUser;
+      if(readSettings.showPillDevice==undefined) readSettings.showPillDevice = DEFAULT_SETTINGS.showPillDevice;
+      if(readSettings.showPillIP==undefined) readSettings.showPillIP = DEFAULT_SETTINGS.showPillIP;
       if(readSettings.displayPosterAlbum==undefined) readSettings.displayPosterAlbum = 'true';
       if(readSettings.displayPosterVideo==undefined) readSettings.displayPosterVideo = 'true';
       if(readSettings.displayPosterBooks==undefined) readSettings.displayPosterBooks = 'true';
@@ -372,6 +419,7 @@ class Settings {
     this.enableTrivia = 'false';
     this.enableLinks = 'false';
     this.enableAwtrix = 'false';
+    this.enableAppleTv = 'false';
 
     const data = JSON.stringify(this, null, 4);
 
@@ -512,8 +560,7 @@ class Settings {
       cs.bookArrKind !== undefined && cs.bookArrKind !== null
         ? cs.bookArrKind
         : DEFAULT_SETTINGS.bookArrKind;
-    if (jsonObject.artSwitch) this.hasArt = jsonObject.artSwitch;
-    else this.hasArt = cs.hasArt;
+    this.hasArt = toSettingsBoolStr(jsonObject.artSwitch, cs.hasArt ?? DEFAULT_SETTINGS.hasArt);
     this.showCast = toSettingsBoolStr(
       jsonObject.showCast,
       cs.showCast ?? DEFAULT_SETTINGS.showCast
@@ -530,6 +577,82 @@ class Settings {
       jsonObject.showAlbumArtist,
       cs.showAlbumArtist ?? DEFAULT_SETTINGS.showAlbumArtist
     );
+    this.showMovieTagline = toSettingsBoolStr(
+      jsonObject.showMovieTagline,
+      cs.showMovieTagline ?? DEFAULT_SETTINGS.showMovieTagline
+    );
+    this.showPillYear = toSettingsBoolStr(
+      jsonObject.showPillYear,
+      cs.showPillYear ?? DEFAULT_SETTINGS.showPillYear
+    );
+    this.showPillGenre = toSettingsBoolStr(
+      jsonObject.showPillGenre,
+      cs.showPillGenre ?? DEFAULT_SETTINGS.showPillGenre
+    );
+    this.showPillContentRating = toSettingsBoolStr(
+      jsonObject.showPillContentRating,
+      cs.showPillContentRating ?? DEFAULT_SETTINGS.showPillContentRating
+    );
+    this.showPillRating = toSettingsBoolStr(
+      jsonObject.showPillRating,
+      cs.showPillRating ?? DEFAULT_SETTINGS.showPillRating
+    );
+    this.showPillRuntime = toSettingsBoolStr(
+      jsonObject.showPillRuntime,
+      cs.showPillRuntime ?? DEFAULT_SETTINGS.showPillRuntime
+    );
+    this.showPillResolution = toSettingsBoolStr(
+      jsonObject.showPillResolution,
+      cs.showPillResolution ?? DEFAULT_SETTINGS.showPillResolution
+    );
+    this.showPillAudioCodec = toSettingsBoolStr(
+      jsonObject.showPillAudioCodec,
+      cs.showPillAudioCodec ?? DEFAULT_SETTINGS.showPillAudioCodec
+    );
+    this.showPillNetwork = toSettingsBoolStr(
+      jsonObject.showPillNetwork,
+      cs.showPillNetwork ?? DEFAULT_SETTINGS.showPillNetwork
+    );
+    this.showPillStudio = toSettingsBoolStr(
+      jsonObject.showPillStudio,
+      cs.showPillStudio ?? DEFAULT_SETTINGS.showPillStudio
+    );
+    this.showPillLibrary = toSettingsBoolStr(
+      jsonObject.showPillLibrary,
+      cs.showPillLibrary ?? DEFAULT_SETTINGS.showPillLibrary
+    );
+    this.showPillEpisode = toSettingsBoolStr(
+      jsonObject.showPillEpisode,
+      cs.showPillEpisode ?? DEFAULT_SETTINGS.showPillEpisode
+    );
+    this.showPill3D = toSettingsBoolStr(
+      jsonObject.showPill3D,
+      cs.showPill3D ?? DEFAULT_SETTINGS.showPill3D
+    );
+    this.showPillEndTime = toSettingsBoolStr(
+      jsonObject.showPillEndTime,
+      cs.showPillEndTime ?? DEFAULT_SETTINGS.showPillEndTime
+    );
+    this.showPillPageCount = toSettingsBoolStr(
+      jsonObject.showPillPageCount,
+      cs.showPillPageCount ?? DEFAULT_SETTINGS.showPillPageCount
+    );
+    this.showPillLeadCast = toSettingsBoolStr(
+      jsonObject.showPillLeadCast,
+      cs.showPillLeadCast ?? DEFAULT_SETTINGS.showPillLeadCast
+    );
+    this.showPillUser = toSettingsBoolStr(
+      jsonObject.showPillUser,
+      cs.showPillUser ?? DEFAULT_SETTINGS.showPillUser
+    );
+    this.showPillDevice = toSettingsBoolStr(
+      jsonObject.showPillDevice,
+      cs.showPillDevice ?? DEFAULT_SETTINGS.showPillDevice
+    );
+    this.showPillIP = toSettingsBoolStr(
+      jsonObject.showPillIP,
+      cs.showPillIP ?? DEFAULT_SETTINGS.showPillIP
+    );
     this.displayPosterAlbum = toSettingsBoolStr(
       jsonObject.displayPosterAlbum,
       cs.displayPosterAlbum ?? DEFAULT_SETTINGS.displayPosterAlbum
@@ -542,12 +665,14 @@ class Settings {
       jsonObject.displayPosterBooks,
       cs.displayPosterBooks ?? DEFAULT_SETTINGS.displayPosterBooks
     );
+    // The UI's single "Cast" checkbox is named displayPosterCast, not displayPosterActor/Actress —
+    // both settings follow it together.
     this.displayPosterActor = toSettingsBoolStr(
-      jsonObject.displayPosterActor,
+      jsonObject.displayPosterCast,
       cs.displayPosterActor ?? DEFAULT_SETTINGS.displayPosterActor
     );
     this.displayPosterActress = toSettingsBoolStr(
-      jsonObject.displayPosterActress,
+      jsonObject.displayPosterCast,
       cs.displayPosterActress ?? DEFAULT_SETTINGS.displayPosterActress
     );
     this.displayPosterDirector = toSettingsBoolStr(
@@ -562,14 +687,11 @@ class Settings {
       jsonObject.displayPosterArtist,
       cs.displayPosterArtist ?? DEFAULT_SETTINGS.displayPosterArtist
     );
-    if (jsonObject.shuffleSwitch) this.shuffleSlides = jsonObject.shuffleSwitch;
-    else this.shuffleSlides = cs.shuffleSlides;
+    this.shuffleSlides = toSettingsBoolStr(jsonObject.shuffleSwitch, cs.shuffleSlides ?? DEFAULT_SETTINGS.shuffleSlides);
     if (jsonObject.genres) this.genres = jsonObject.genres;
     else this.genres = cs.genres;
-    if (jsonObject.pinNSSwitch) this.pinNS = jsonObject.pinNSSwitch;
-    else this.pinNS = cs.pinNS;
-    if (jsonObject.hideUser) this.hideUser = jsonObject.hideUser;
-    else this.hideUser = cs.hideUser;
+    this.pinNS = toSettingsBoolStr(jsonObject.pinNSSwitch, cs.pinNS ?? DEFAULT_SETTINGS.pinNS);
+    this.hideUser = toSettingsBoolStr(jsonObject.hideUser, cs.hideUser ?? DEFAULT_SETTINGS.hideUser);
     if (jsonObject.titleFont) this.custBrand = jsonObject.titleFont;
     else this.custBrand = cs.custBrand;
     if (jsonObject.nowScreening) this.nowScreening = jsonObject.nowScreening;
@@ -598,6 +720,8 @@ class Settings {
     else this.footColour = cs.footColour;
     if (jsonObject.bgColour) this.bgColour = jsonObject.bgColour;
     else this.bgColour = cs.bgColour;
+    if (jsonObject.progressColour) this.progressColour = jsonObject.progressColour;
+    else this.progressColour = cs.progressColour;
     if (jsonObject.enableNS) this.enableNS = jsonObject.enableNS;
     else this.enableNS = "false";
     if (
@@ -613,10 +737,16 @@ class Settings {
           ? cs.nowPlayingEveryPosters
           : DEFAULT_SETTINGS.nowPlayingEveryPosters;
     }
-    this.enableNowShowingListInPoster = toSettingsBoolStr(
-      jsonObject.enableNowShowingListInPoster,
-      cs.enableNowShowingListInPoster ?? DEFAULT_SETTINGS.enableNowShowingListInPoster
-    );
+    // enableNowShowingListInPoster/nowShowingListOnly/nowShowingFillFromServer/
+    // nowShowingShowPrices/nowShowingAutoPriceEnabled/enableNowShowingPageCycle below are
+    // owned exclusively by the "Now Showing" screen options form (POST /settings/now-showing/screen,
+    // which saves via UpdateSettings and never calls this function) — the main settings form
+    // this function IS built from has no checkboxes for them. toSettingsBoolStr's "absent means
+    // unchecked" rule is correct for fields the calling form owns, but would wrongly reset these
+    // to false on every main-settings save, since jsonObject never legitimately carries them.
+    // Always preserve the on-disk value instead.
+    this.enableNowShowingListInPoster =
+      cs.enableNowShowingListInPoster ?? DEFAULT_SETTINGS.enableNowShowingListInPoster;
     if (
       jsonObject.nowShowingListEveryMins !== undefined &&
       jsonObject.nowShowingListEveryMins !== null &&
@@ -632,10 +762,8 @@ class Settings {
             ? cs.nowShowingListEveryPosters
             : DEFAULT_SETTINGS.nowShowingListEveryMins;
     }
-    this.nowShowingListOnly = toSettingsBoolStr(
-      jsonObject.nowShowingListOnly,
-      cs.nowShowingListOnly ?? DEFAULT_SETTINGS.nowShowingListOnly
-    );
+    this.nowShowingListOnly =
+      cs.nowShowingListOnly ?? DEFAULT_SETTINGS.nowShowingListOnly;
     if (jsonObject.nowShowingListBanner !== undefined && jsonObject.nowShowingListBanner !== null) {
       this.nowShowingListBanner = String(jsonObject.nowShowingListBanner);
     } else {
@@ -644,10 +772,8 @@ class Settings {
           ? cs.nowShowingListBanner
           : DEFAULT_SETTINGS.nowShowingListBanner;
     }
-    this.nowShowingFillFromServer = toSettingsBoolStr(
-      jsonObject.nowShowingFillFromServer,
-      cs.nowShowingFillFromServer ?? DEFAULT_SETTINGS.nowShowingFillFromServer
-    );
+    this.nowShowingFillFromServer =
+      cs.nowShowingFillFromServer ?? DEFAULT_SETTINGS.nowShowingFillFromServer;
     if (
       jsonObject.nowShowingFillLibraryMax !== undefined &&
       jsonObject.nowShowingFillLibraryMax !== null &&
@@ -691,14 +817,10 @@ class Settings {
           ? cs.nowShowingShowtimeCount
           : DEFAULT_SETTINGS.nowShowingShowtimeCount;
     }
-    this.nowShowingShowPrices = toSettingsBoolStr(
-      jsonObject.nowShowingShowPrices,
-      cs.nowShowingShowPrices ?? DEFAULT_SETTINGS.nowShowingShowPrices
-    );
-    this.nowShowingAutoPriceEnabled = toSettingsBoolStr(
-      jsonObject.nowShowingAutoPriceEnabled,
-      cs.nowShowingAutoPriceEnabled ?? DEFAULT_SETTINGS.nowShowingAutoPriceEnabled
-    );
+    this.nowShowingShowPrices =
+      cs.nowShowingShowPrices ?? DEFAULT_SETTINGS.nowShowingShowPrices;
+    this.nowShowingAutoPriceEnabled =
+      cs.nowShowingAutoPriceEnabled ?? DEFAULT_SETTINGS.nowShowingAutoPriceEnabled;
     if (
       jsonObject.nowShowingAutoPriceMin !== undefined &&
       jsonObject.nowShowingAutoPriceMin !== null &&
@@ -756,10 +878,8 @@ class Settings {
           ? cs.nowShowingCurrencyCode
           : DEFAULT_SETTINGS.nowShowingCurrencyCode;
     }
-    this.enableNowShowingPageCycle = toSettingsBoolStr(
-      jsonObject.enableNowShowingPageCycle,
-      cs.enableNowShowingPageCycle ?? DEFAULT_SETTINGS.enableNowShowingPageCycle
-    );
+    this.enableNowShowingPageCycle =
+      cs.enableNowShowingPageCycle ?? DEFAULT_SETTINGS.enableNowShowingPageCycle;
     if (
       jsonObject.nowShowingPageCycleEveryMins !== undefined &&
       jsonObject.nowShowingPageCycleEveryMins !== null &&
@@ -826,14 +946,10 @@ class Settings {
     else this.filterDevices = "";
     if (jsonObject.filterUsers) this.filterUsers = jsonObject.filterUsers;
     else this.filterUsers = "";
-    if (jsonObject.odHideTitle) this.odHideTitle = jsonObject.odHideTitle;
-    else this.odHideTitle = cs.odHideTitle;
-    if (jsonObject.odHideFooter) this.odHideFooter = jsonObject.odHideFooter;
-    else this.odHideFooter = cs.odHideFooter;
-    if (jsonObject.enableCustomPictures) this.enableCustomPictures = jsonObject.enableCustomPictures;
-    else this.enableCustomPictures = cs.enableCustomPictures;
-    if (jsonObject.enableCustomPictureThemes) this.enableCustomPictureThemes = jsonObject.enableCustomPictureThemes;
-    else this.enableCustomPictureThemes = cs.enableCustomPictureThemes;
+    this.odHideTitle = toSettingsBoolStr(jsonObject.odHideTitle, cs.odHideTitle ?? DEFAULT_SETTINGS.odHideTitle);
+    this.odHideFooter = toSettingsBoolStr(jsonObject.odHideFooter, cs.odHideFooter ?? DEFAULT_SETTINGS.odHideFooter);
+    this.enableCustomPictures = toSettingsBoolStr(jsonObject.enableCustomPictures, cs.enableCustomPictures ?? DEFAULT_SETTINGS.enableCustomPictures);
+    this.enableCustomPictureThemes = toSettingsBoolStr(jsonObject.enableCustomPictureThemes, cs.enableCustomPictureThemes ?? DEFAULT_SETTINGS.enableCustomPictureThemes);
     if (jsonObject.customPictureTheme) this.customPictureTheme = jsonObject.customPictureTheme;
     else this.customPictureTheme = cs.customPictureTheme;
     if (
@@ -971,10 +1087,8 @@ class Settings {
     else this.sleepStart = cs.sleepStart;
     if (jsonObject.sleepEnd) this.sleepEnd = jsonObject.sleepEnd;
     else this.sleepEnd = cs.sleepEnd;
-    if (jsonObject.enableSleep) this.enableSleep = jsonObject.enableSleep;
-    else this.enableSleep = cs.enableSleep;
-    if (jsonObject.enableTrivia) this.enableTrivia = jsonObject.enableTrivia;
-    else this.enableTrivia = cs.enableTrivia;
+    this.enableSleep = toSettingsBoolStr(jsonObject.enableSleep, cs.enableSleep ?? DEFAULT_SETTINGS.enableSleep);
+    this.enableTrivia = toSettingsBoolStr(jsonObject.enableTrivia, cs.enableTrivia ?? DEFAULT_SETTINGS.enableTrivia);
     if (jsonObject.triviaCategories) this.triviaCategories = jsonObject.triviaCategories;
     else this.triviaCategories = cs.triviaCategories;
     if (jsonObject.triviaTimer) this.triviaTimer = jsonObject.triviaTimer;
@@ -987,14 +1101,15 @@ class Settings {
     else this.contentRatings = cs.contentRatings;
     if (jsonObject.links) this.links = jsonObject.links;
     else this.links = cs.links;
-    if (jsonObject.enableLinks) this.enableLinks = jsonObject.enableLinks;
-    else this.enableLinks = cs.enableLinks;
-    if (jsonObject.enableAwtrix) this.enableAwtrix = jsonObject.enableAwtrix;
-    else this.enableAwtrix = cs.enableAwtrix;
+    this.enableLinks = toSettingsBoolStr(jsonObject.enableLinks, cs.enableLinks ?? DEFAULT_SETTINGS.enableLinks);
+    this.enableAwtrix = toSettingsBoolStr(jsonObject.enableAwtrix, cs.enableAwtrix ?? DEFAULT_SETTINGS.enableAwtrix);
     if (jsonObject.awtrixIP) this.awtrixIP = jsonObject.awtrixIP;
     else this.awtrixIP = cs.awtrixIP;
-    if (jsonObject.rotate) this.rotate = jsonObject.rotate;
-    else this.rotate = cs.rotate;
+    if (jsonObject.enableAppleTv) this.enableAppleTv = jsonObject.enableAppleTv;
+    else this.enableAppleTv = cs.enableAppleTv;
+    if (jsonObject.appleTvSidecarPort) this.appleTvSidecarPort = jsonObject.appleTvSidecarPort;
+    else this.appleTvSidecarPort = cs.appleTvSidecarPort;
+    this.rotate = toSettingsBoolStr(jsonObject.rotate, cs.rotate ?? DEFAULT_SETTINGS.rotate);
     if (jsonObject.excludeLibs) this.excludeLibs = jsonObject.excludeLibs;
     else this.excludeLibs = cs.excludeLibs;
     if (

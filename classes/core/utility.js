@@ -1,3 +1,5 @@
+const holidayRules = require("./holidayRules");
+
 /**
  * @desc utility class for string and object handling
  * @returns {<object>} utility
@@ -51,6 +53,11 @@ class utility {
   /** Comma-separated director names from Plex Director metadata */
   static formatDirectorsFromPlexDirector(director) {
     return utility._plexTagNames(director, 8);
+  }
+
+  /** Comma-separated genre names from Plex Genre metadata (array of {tag} objects, not plain strings) */
+  static formatGenresFromPlexGenre(genre) {
+    return utility._plexTagNames(genre, 8);
   }
 
   static _embyPeopleByType(people, typeName, max) {
@@ -143,13 +150,46 @@ class utility {
     if (want === 0) {
       return [];
     }
-    // Fisher–Yates shuffle, then take first `want` — always unique (reference equality per slot).
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const t = pool[i];
-      pool[i] = pool[j];
-      pool[j] = t;
+
+    const shuffle = (arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = arr[i];
+        arr[i] = arr[j];
+        arr[j] = t;
+      }
+      return arr;
+    };
+
+    // Active holiday rule: guarantee its matching titles fill the pool first, then top up
+    // with random picks from the rest — a handful of matches among hundreds of titles would
+    // otherwise rarely get drawn by a plain random sample.
+    let picked = null;
+    const activeRules = holidayRules.activeHolidayRulesForToday();
+    if (activeRules.length > 0) {
+      const matched = [];
+      const rest = [];
+      for (const card of pool) {
+        let isMatch = false;
+        for (const rule of activeRules) {
+          if (holidayRules.cardMatchesHolidayRule(card, rule)) {
+            isMatch = true;
+            break;
+          }
+        }
+        (isMatch ? matched : rest).push(card);
+      }
+      if (matched.length > 0) {
+        const matchedPicked = shuffle(matched.slice()).slice(0, want);
+        const restPicked = shuffle(rest.slice()).slice(0, want - matchedPicked.length);
+        picked = shuffle(matchedPicked.concat(restPicked));
+      }
     }
+    if (!picked) {
+      // Fisher–Yates shuffle, then take first `want` — always unique (reference equality per slot).
+      picked = shuffle(pool).slice(0, want);
+    }
+
     if (requested > pool.length && pool.length > 0) {
       const d = new Date();
       console.log(
@@ -163,7 +203,7 @@ class utility {
           ". (Lower “number to display” or widen libraries/filters.)"
       );
     }
-    return pool.slice(0, want);
+    return picked;
     }
 }
 

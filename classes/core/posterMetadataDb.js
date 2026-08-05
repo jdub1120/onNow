@@ -3,6 +3,7 @@ const path = require("path");
 const Cache = require("./cache");
 const MediaCard = require("../cards/MediaCard");
 const CardType = require("../cards/CardType");
+const holidayRules = require("./holidayRules");
 const { CACHE_ROOT, CONFIG_ROOT, LEGACY_SAVED_ROOT } = require("./appPaths");
 
 /** SQLite poster metadata (moved from config/cache to config root). */
@@ -252,7 +253,7 @@ function logLegacySavedImageHint() {
     if (n > 0) return;
     console.log(
       new Date().toLocaleString() +
-        " PosterX: cached images are still under saved/imagecache; move files to config/cache/imagecache (and mp3cache → config/cache/mp3cache), or copy your old saved/ tree into config/cache/."
+        " OnNow: cached images are still under saved/imagecache; move files to config/cache/imagecache (and mp3cache → config/cache/mp3cache), or copy your old saved/ tree into config/cache/."
     );
   } catch (e) {
     /* ignore */
@@ -505,10 +506,19 @@ function getEntryByServerAndApiItemId(serverKind, apiItemId) {
  * @param {string} serverKind
  * @param {string} apiItemId
  * @param {string|number|Date} sourceUpdatedAt
+ * @param {{background?: boolean, logo?: boolean}} [wantedExtras] - extras the *current* sync
+ *   run wants to pull (e.g. from the hasArt setting). If the cached row is missing one of these
+ *   (never fetched, or the file's gone from disk), the item is NOT skipped even though its
+ *   poster is fine — otherwise turning on "Enable background artwork" after an initial sync
+ *   would never backfill art for already-cached titles, since only the poster gets checked.
  */
-function shouldSkipSyncItem(serverKind, apiItemId, sourceUpdatedAt) {
+function shouldSkipSyncItem(serverKind, apiItemId, sourceUpdatedAt, wantedExtras) {
   const row = getEntryByServerAndApiItemId(serverKind, apiItemId);
   if (!row || !row.cacheFile || !fileOk(row.cacheFile)) return false;
+  if (wantedExtras) {
+    if (wantedExtras.background && !(row.artCacheFile && fileOk(row.artCacheFile))) return false;
+    if (wantedExtras.logo && !(row.logoCacheFile && fileOk(row.logoCacheFile))) return false;
+  }
   if (sourceUpdatedAt === undefined || sourceUpdatedAt === null || sourceUpdatedAt === "")
     return true;
   const srcTs = new Date(sourceUpdatedAt).getTime();
@@ -969,6 +979,15 @@ function registerFromMediaServerCards(nsCards, odCards, serverKind) {
   };
 }
 
+function shuffled(arr) {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 function pickRandomEntries(count, serverKindOpt) {
   let valid = selectAllEntries().filter((e) => e.cacheFile && fileOk(e.cacheFile));
   if (valid.length === 0) return [];
@@ -982,12 +1001,33 @@ function pickRandomEntries(count, serverKindOpt) {
     );
     if (filtered.length > 0) valid = filtered;
   }
-  const shuffled = valid.slice();
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  const want = Math.min(count, valid.length);
+
+  // When a holiday rule is active, guarantee its matching titles fill the pool first,
+  // then top up with random picks from everything else — instead of leaving inclusion
+  // up to chance (a handful of matching titles among hundreds rarely got drawn).
+  const activeRules = holidayRules.activeHolidayRulesForToday();
+  if (activeRules.length > 0) {
+    const matched = [];
+    const rest = [];
+    for (const e of valid) {
+      let isMatch = false;
+      for (const rule of activeRules) {
+        if (holidayRules.posterEntryMatchesHolidayRule(e, rule)) {
+          isMatch = true;
+          break;
+        }
+      }
+      (isMatch ? matched : rest).push(e);
+    }
+    if (matched.length > 0) {
+      const matchedPicked = shuffled(matched).slice(0, want);
+      const restPicked = shuffled(rest).slice(0, want - matchedPicked.length);
+      return shuffled(matchedPicked.concat(restPicked));
+    }
   }
-  return shuffled.slice(0, Math.min(count, shuffled.length));
+
+  return shuffled(valid).slice(0, want);
 }
 
 /** Match EmbyJellyfinBase.ratingColour / MediaCard content-rating pills for DB-built OD cards. */
@@ -1181,7 +1221,7 @@ function buildFallbackMediaCards(count, serverKind) {
  */
 async function clearPosterCacheAndMetadata() {
   await Cache.DeleteImageCache();
-  fs.mkdirSync(SAVED, { recursive: true });
+  fs.mkdirSync(LEGACY_SAVED_ROOT, { recursive: true });
   assertDb();
   _sqlDb.run("DELETE FROM poster_entries");
   persistDb();

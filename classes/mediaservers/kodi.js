@@ -977,7 +977,10 @@ class Kodi {
         if (
           rawApiId &&
           !mustRetry &&
-          posterMetadataDb.shouldSkipSyncItem("kodi", rawApiId, sourceUpdatedAt)
+          posterMetadataDb.shouldSkipSyncItem("kodi", rawApiId, sourceUpdatedAt, {
+            background: pullBackground,
+            logo: pullLogo,
+          })
         ) {
           if (sp) {
             sp.processed = Math.min(sp.total || 0, (sp.processed || 0) + 1);

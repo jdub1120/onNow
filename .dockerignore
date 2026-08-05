@@ -3,6 +3,11 @@
 **/.env
 **/.git
 **/.gitignore
+# Runtime data (settings.json incl. TMDB API key, Apple TV pairing credentials, caches,
+# poster DBs) — this is a mounted volume at runtime (see docker-compose.yml), never something
+# to bake into the image from whatever happens to be in a local checkout. The Dockerfile
+# recreates the needed subdirectory structure itself after this.
+/config/**
 **/.project
 **/.settings
 **/.toolstarget
@@ -18,6 +23,7 @@
 **/Dockerfile*
 **/node_modules
 **/npm-debug.log
+/.appletv-venv
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml

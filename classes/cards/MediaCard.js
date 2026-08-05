@@ -1,4 +1,5 @@
 const util = require("./../core/utility");
+const core = require("./../core/cache");
 
 /**
  * @desc mediaCards base class for defining every card that is showed in the poster app
@@ -38,6 +39,26 @@ class MediaCard {
     this.resCodec = "";
     this.studio = "";
     this.network = "";
+    // Live sports matchup card (mediaType "sports") — populated only when a Now Playing title
+    // is confirmed against a real, currently-scheduled game (see liveSportsLookup.js).
+    this.sportsLeague = "";
+    this.sportsAwayName = "";
+    this.sportsAwayColor = "";
+    this.sportsAwayLogo = "";
+    this.sportsHomeName = "";
+    this.sportsHomeColor = "";
+    this.sportsHomeLogo = "";
+    this.sportsIsLive = false;
+    this.sportsGameStarted = false;
+    this.sportsAwayScore = "";
+    this.sportsHomeScore = "";
+    // Inning state — MLB only for now (see appletv.js).
+    this.sportsInningHalf = ""; // "top" | "bottom"
+    this.sportsInningOrdinal = ""; // e.g. "7th"
+    this.sportsOuts = null; // 0-3
+    this.sportsOnFirst = false;
+    this.sportsOnSecond = false;
+    this.sportsOnThird = false;
     this.audioCodec = "";
     this.playerDevice = "";
     this.playerIP = "";
@@ -49,6 +70,10 @@ class MediaCard {
     this.progress = "";
     this.progressPercent = "";
     this.decision = "";
+    // Drives the animated equalizer icon next to a music card's title (bars bounce while
+    // playing, freeze when true). Providers that can distinguish playing vs. paused for their
+    // now-playing session should set this; defaults to false (animating) for everything else.
+    this.paused = false;
     this.theme = "";
     this.rendered = "";
     this.user ="";
@@ -98,24 +123,45 @@ class MediaCard {
    * @desc renders the properties of the card into html, then sets this to the 'rendered' property
    * @returns nothing
    */
-  async Render(
-    hasArt,
-    baseUrl,
-    hideTitle,
-    hideFooter,
-    showCast,
-    showDirectors,
-    showAuthors,
-    showAlbumArtist,
-    displayPosterAlbum,
-    displayPosterVideo,
-    displayPosterBooks,
-    displayPosterActor,
-    displayPosterActress,
-    displayPosterDirector,
-    displayPosterAuthor,
-    displayPosterArtist
-  ) {
+  async Render(options) {
+    const {
+      hasArt,
+      baseUrl,
+      hideTitle,
+      hideFooter,
+      showCast,
+      showDirectors,
+      showAuthors,
+      showAlbumArtist,
+      showMovieTagline = "true",
+      displayPosterAlbum,
+      displayPosterVideo,
+      displayPosterBooks,
+      displayPosterActor,
+      displayPosterActress,
+      displayPosterDirector,
+      displayPosterAuthor,
+      displayPosterArtist,
+      showPillYear = "true",
+      showPillGenre = "true",
+      showPillContentRating = "true",
+      showPillRating = "true",
+      showPillRuntime = "true",
+      showPillResolution = "true",
+      showPillAudioCodec = "true",
+      showPillNetwork = "true",
+      showPillStudio = "true",
+      showPillLibrary = "true",
+      showPillEpisode = "true",
+      showPill3D = "true",
+      showPillEndTime = "true",
+      showPillPageCount = "true",
+      showPillLeadCast = "true",
+      showPillUser = "true",
+      showPillDevice = "true",
+      showPillIP = "true",
+      useRtRatingIcons = false,
+    } = options || {};
     const isEnabled = (v) => {
       if (v === true) return true;
       const s = String(v == null ? "" : v).toLowerCase().trim();
@@ -128,9 +174,130 @@ class MediaCard {
     let pauseMessage = "";
 
     // set header/footer hidden values
-    // Keep metadata footer visible for on-demand music/books (legacy) and for on-demand
-    // movies/shows/episodes so rating, year, genre, studio, etc. pills can appear.
+    // Keep metadata footer visible for on-demand music/books (legacy) — movies/shows/episodes
+    // respect hideTitle/hideFooter like any other on-demand card (previously they were
+    // hard-excluded from ever hiding, which made the "Hide Footer" setting a no-op for the
+    // most common on-demand content type).
     const isMusicCard = this.mediaType === "album" || this.mediaType === "track";
+    // Apple Music-style caption shown just below the album art on music cards — title
+    // semi-bold/white, artist regular/light gray, both centered. Positioned by Resize() in
+    // posters.ejs (needs the artwork's actual rendered width/bottom edge, which is only known
+    // client-side), so this just carries the escaped text; the CSS class handles font weight/color.
+    let musicInfoHtml = "";
+    // Apple Music-style dynamic background: a gradient built from the artwork's own dominant
+    // color, instead of a blurred copy of the image. Falls back to null (posterArt's plain
+    // blurred-image rendering) if extraction fails or the art isn't a locally cached file yet.
+    let musicGradientColors = null;
+    // "Living Room ATV" / "Game Room ATV" -> "Living Room" / "Game Room" — the "ATV"/"Apple
+    // TV" suffix is redundant once it's phrased as "Playing in X"; falls back to the full
+    // name if stripping it would leave nothing (e.g. a device literally just named "ATV").
+    // Shared between music and sports captions (same markup/class both times).
+    const rawDevice = String(this.device || "").trim();
+    const strippedDevice = rawDevice.replace(/\s*(apple\s*tv|atv)\s*$/i, "").trim();
+    const deviceLabel = strippedDevice || rawDevice;
+    const devicePillHtml = deviceLabel
+      ? `<div class="musicDevicePill"><span class="badge badge-pill badge-secondary">Playing in ` +
+        util.escapeHtml(deviceLabel) +
+        `</span></div>`
+      : "";
+    if (isMusicCard) {
+      const musicTitle = util.escapeHtml(String(this.title || "").trim());
+      const musicArtist = util.escapeHtml(String(this.albumArtist || "").trim());
+      const eqIcon =
+        `<span class="eqIcon` + (this.paused ? " paused" : "") + `"><span></span><span></span><span></span></span>`;
+      musicInfoHtml =
+        `<div class="musicInfo hidden" id="musicInfo` + this.ID + `">` +
+        `<div class="musicTitle">` + eqIcon + `<span class="musicTitleText">` + musicTitle + `</span></div>` +
+        (musicArtist ? `<div class="musicArtist">` + musicArtist + `</div>` : "") +
+        devicePillHtml +
+        `</div>`;
+
+      const artSource = this.posterArtURL || this.posterURL;
+      if (String(artSource || "").startsWith("/imagecache/")) {
+        const artFileName = String(artSource).slice("/imagecache/".length);
+        try {
+          musicGradientColors = await core.ExtractMusicGradientColors(artFileName);
+        } catch (e) {
+          musicGradientColors = null;
+        }
+      }
+    }
+    // Live sports matchup card — two team logos + a split-color background built from each
+    // team's real color, instead of a poster (there isn't one). See appletv.js/liveSportsLookup
+    // for how this gets confirmed as an actual scheduled game before mediaType is set to this.
+    const isSportsCard = this.mediaType === "sports";
+    let sportsLogosHtml = "";
+    let sportsInfoHtml = "";
+    let sportsGradientColors = null;
+    if (isSportsCard) {
+      const awayName = util.escapeHtml(String(this.sportsAwayName || "").trim());
+      const homeName = util.escapeHtml(String(this.sportsHomeName || "").trim());
+      const network = util.escapeHtml(String(this.network || "").trim());
+      sportsGradientColors = {
+        away: String(this.sportsAwayColor || "#333333").trim(),
+        home: String(this.sportsHomeColor || "#333333").trim(),
+      };
+
+      // "VS" before the game starts (a pre-game score is just a meaningless 0-0 placeholder);
+      // once it's underway, show the actual score instead — refreshed every poll, but the
+      // underlying scoreboard data itself only actually changes every few minutes (see
+      // liveSportsLookup's SCOREBOARD_TTL_MS).
+      const vsText = this.sportsGameStarted
+        ? util.escapeHtml(String(this.sportsAwayScore || "0")) + " - " + util.escapeHtml(String(this.sportsHomeScore || "0"))
+        : "VS";
+
+      // ▲/▼ for top/bottom of the inning (rather than spelling it out) under the score, and a
+      // base-runner diamond + outs dots above the score — MLB only for now.
+      let sportsGameStateHtml = "";
+      let sportsBasesHtml = "";
+      if (this.sportsInningOrdinal) {
+        const arrow = this.sportsInningHalf === "bottom" ? "▼" : "▲";
+        sportsGameStateHtml =
+          `<div class="sportsGameState hidden" id="sportsGameState` + this.ID + `">` +
+          `<div class="sportsInningRow">` + arrow + ` ` + util.escapeHtml(this.sportsInningOrdinal) + `</div>` +
+          `</div>`;
+
+        // Just the 3 actual bases — 2nd at top, 1st at right, 3rd at left, matching the
+        // standard view from behind home plate. Filled when a runner's actually on that base.
+        let outsDots = "";
+        if (this.sportsOuts != null) {
+          for (let i = 0; i < 3; i++) {
+            outsDots += `<span class="sportsOutDot` + (i < this.sportsOuts ? " filled" : "") + `"></span>`;
+          }
+        }
+        sportsBasesHtml =
+          `<div class="sportsBases hidden" id="sportsBases` + this.ID + `">` +
+          `<div class="sportsBasesDiamond">` +
+          `<span class="sportsBase second` + (this.sportsOnSecond ? " filled" : "") + `"></span>` +
+          `<span class="sportsBase first` + (this.sportsOnFirst ? " filled" : "") + `"></span>` +
+          `<span class="sportsBase third` + (this.sportsOnThird ? " filled" : "") + `"></span>` +
+          `</div>` +
+          (outsDots ? `<div class="sportsOutsRow">` + outsDots + `</div>` : "") +
+          `</div>`;
+      }
+
+      // Each logo is positioned independently by Resize() (left logo higher, right logo
+      // lower, on a diagonal echoing the 45°-angle background gradient) rather than a
+      // flexbox row, so they need their own ids instead of a shared row wrapper.
+      sportsLogosHtml =
+        `<div class="sportsLogo away hidden" id="sportsLogoAway` + this.ID + `">` +
+        `<div class="sportsLogoImg" style="background-image:url('` + baseUrl + this.sportsAwayLogo + `')"></div>` +
+        `</div>` +
+        sportsBasesHtml +
+        `<div class="sportsVs` + (this.sportsGameStarted ? " score" : "") + ` hidden" id="sportsVs` + this.ID + `">` + vsText + `</div>` +
+        sportsGameStateHtml +
+        `<div class="sportsLogo home hidden" id="sportsLogoHome` + this.ID + `">` +
+        `<div class="sportsLogoImg" style="background-image:url('` + baseUrl + this.sportsHomeLogo + `')"></div>` +
+        `</div>`;
+
+      sportsInfoHtml =
+        `<div class="sportsInfo hidden" id="sportsInfo` + this.ID + `">` +
+        (this.sportsIsLive ? `<div class="sportsLiveBadge"><span class="sportsLiveDot"></span>LIVE</div>` : "") +
+        `<div class="sportsMatchupTitle">` + awayName + ` at ` + homeName + `</div>` +
+        (network ? `<div class="sportsNetwork">` + network + `</div>` : "") +
+        devicePillHtml +
+        `</div>`;
+    }
     const isBookCard =
       this.mediaType === "ebook" || this.mediaType === "audiobook";
     const isVideoOnDemand =
@@ -138,14 +305,34 @@ class MediaCard {
       (this.mediaType === "movie" ||
         this.mediaType === "episode" ||
         this.mediaType === "show");
-    const keepMetaFooter = isMusicCard || isBookCard || isVideoOnDemand;
-    if (hideTitle == "true" && this.cardType[0] == "On-demand" && !keepMetaFooter) {
+    const keepMetaFooter = isMusicCard || isBookCard;
+    // Now Playing (Plex, Jellyfin/Emby, Kodi, or Apple TV — all use "Now Screening" as their
+    // cardType; "Playing" is a legacy type nothing actually assigns) shares the on-demand Hide
+    // Title/Footer controls — there's no separate toggle for it, and users expect the same
+    // footer behavior regardless of whether the poster came from on-demand rotation or
+    // something actively playing.
+    const respectsHideControls =
+      this.cardType[0] == "On-demand" ||
+      this.cardType[0] == "Playing" ||
+      this.cardType[0] == "Now Screening";
+    if (hideTitle == "true" && respectsHideControls && !keepMetaFooter) {
       hiddenTitle = "hidden";
     }
-    if (hideFooter == "true" && this.cardType[0] == "On-demand" && !keepMetaFooter) {
+    if (hideFooter == "true" && respectsHideControls && !keepMetaFooter) {
       hiddenFooter = "hidden";
     }
-    if(hiddenTitle !== "" && hiddenFooter !== "") fullScreen="fullscreen";
+    // Music and sports both have their own custom caption below the artwork/matchup now, so
+    // the generic "NOW PLAYING" banner and the metadata pill row are redundant — hide both
+    // unconditionally rather than tying them to the Hide Title/Footer settings.
+    if (isMusicCard || isSportsCard) {
+      hiddenTitle = "hidden";
+      hiddenFooter = "hidden";
+    }
+    // Music/sports are excluded here even though both are now forced "hidden" above — their
+    // layout is fully custom-positioned by Resize() in posters.ejs (artwork or logos + caption
+    // grouped and centered), and .fullscreen's top/height use !important, which would silently
+    // override those inline styles.
+    if(hiddenTitle !== "" && hiddenFooter !== "" && !isMusicCard && !isSportsCard) fullScreen="fullscreen";
     if(this.cardType[0] == "Picture" || this.cardType == "Trivia Question" || this.cardType == "WebURL"){
       hiddenTitle="hidden";
       hiddenFooter="hidden";
@@ -176,7 +363,14 @@ class MediaCard {
 
     // set to hide progress bar if not a playing type of card
     if (this.cardType[0] != "Now Screening" && this.cardType[0] != "Playing") hidden = "hidden";
-    
+    // Music polls at the same interval as movies/shows, but on a ~3-4 min track that interval
+    // is a visible fraction of the runtime — the bar visibly jumps instead of reading as smooth
+    // real-time progress the way it does on a much longer movie/episode timeline.
+    if (isMusicCard) hidden = "hidden";
+    // Live sports has no meaningful fixed-length runtime to show progress against (see the
+    // provider-side note on totalTime), so there's nothing for this bar to represent.
+    if (isSportsCard) hidden = "hidden";
+
     // get custom card title
     let cardCustomTitle = this.cardType[1] !== "" ? this.cardType[1] : this.cardType[0];
     if (this.cardType[0] == "Ad") {
@@ -189,7 +383,7 @@ class MediaCard {
     et.setMinutes(et.getMinutes()+decRemainingTime);
     //console.log(decRemainingTime);
     //console.log(et.toLocaleTimeString());
-    var endTime = et.toLocaleTimeString("en-US", {hour12: false, hour: "2-digit", minute: "2-digit"});
+    var endTime = et.toLocaleTimeString("en-US", {hour12: true, hour: "numeric", minute: "2-digit"});
 
     this.triviaRender="";
     this.linkRender="";
@@ -259,8 +453,15 @@ class MediaCard {
     if(hasArt=="true") {
       // leave art if present
     }
-    else{
+    else if (!isMusicCard) {
       this.posterArtURL = "";
+    }
+    // Music always shows a blurred backdrop (Apple Music-style), regardless of the Show
+    // Backdrop setting — most sources (e.g. Apple TV) have no separate backdrop image for a
+    // track, only the square cover, so fall back to reusing the cover art itself rather than
+    // leaving a plain black background.
+    if (isMusicCard && !this.posterArtURL) {
+      this.posterArtURL = this.posterURL;
     }
 
     let mainPosterURL = this.posterURL;
@@ -295,8 +496,23 @@ class MediaCard {
       this.mediaType === "ebook" || this.mediaType === "audiobook"
         ? "/images/no-cover-available.png"
         : "/images/no-poster-available.png";
+    // Only stack the placeholder as a second background layer when we don't already have a
+    // real image — otherwise it shows through as visible white letterboxing behind any image
+    // whose aspect ratio doesn't fill the poster container (e.g. square album art, since
+    // .poster uses background-size: contain).
+    // Sports has no poster image at all — the box holds the two team logo divs (sportsLogosHtml)
+    // as real content instead of a background-image, so the fallback placeholder must not show
+    // through behind them.
+    const posterBgLayers = isSportsCard
+      ? "none"
+      : mainPosterURL === posterFallbackURL
+        ? `url('${baseUrl}${posterFallbackURL}')`
+        : `url('${baseUrl}${mainPosterURL}')`;
 
     let displayedTagLine = this.tagLine;
+    if (this.mediaType === "movie" && !isEnabled(showMovieTagline)) {
+      displayedTagLine = "";
+    }
     const castPosterEnabled =
       isEnabled(displayPosterActor) || isEnabled(displayPosterActress);
     const directorPosterEnabled = isEnabled(displayPosterDirector);
@@ -411,7 +627,7 @@ class MediaCard {
     })();
 
     // include if value present
-    if (!(await util.isEmpty(this.year))) {
+    if (isEnabled(showPillYear) && !(await util.isEmpty(this.year))) {
       yearPill =
         "<span class='badge badge-pill badge-dark'> " +
         this.year +
@@ -437,14 +653,14 @@ class MediaCard {
         .slice(0, 4)
         .join(" · ");
     })();
-    if (!(await util.isEmpty(genreStr))) {
+    if (isEnabled(showPillGenre) && !(await util.isEmpty(genreStr))) {
       genrePill =
         "<span class='badge badge-pill badge-info'>" +
         util.escapeHtml(genreStr) +
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.posterLibraryLabel))) {
+    if (isEnabled(showPillLibrary) && !(await util.isEmpty(this.posterLibraryLabel))) {
       const is3dTitle =
         this.is3D === true || String(this.is3D || "").toLowerCase() === "true";
       const libTrim = String(this.posterLibraryLabel).trim();
@@ -465,6 +681,7 @@ class MediaCard {
     }
 
     if (
+      isEnabled(showPillEpisode) &&
       !(await util.isEmpty(this.episodeName)) &&
       this.mediaType === "episode"
     ) {
@@ -474,17 +691,13 @@ class MediaCard {
         "</span>";
     }
 
-    if (this.is3D === true || String(this.is3D || "").toLowerCase() === "true") {
+    if (isEnabled(showPill3D) && (this.is3D === true || String(this.is3D || "").toLowerCase() === "true")) {
       threeDPill = "<span class='badge badge-pill badge-dark'>3D</span>";
     }
 
-    if (!(await util.isEmpty(this.contentRating))) {
+    if (isEnabled(showPillContentRating) && !(await util.isEmpty(this.contentRating))) {
       const ratingColourClass = this.ratingColour || "badge-dark";
-      const crRaw = String(this.contentRating).trim();
-      const crLabel =
-        isVideoOnDemand && crRaw && !/^(nr|unrated)$/i.test(crRaw)
-          ? "Rated " + util.escapeHtml(crRaw)
-          : util.escapeHtml(crRaw);
+      const crLabel = util.escapeHtml(String(this.contentRating).trim());
       contentRatingPill =
         "<span class='badge badge-pill " +
         ratingColourClass +
@@ -493,28 +706,28 @@ class MediaCard {
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.ip))) {
+    if (isEnabled(showPillIP) && !(await util.isEmpty(this.ip))) {
       ipPill =
         "<span class='badge badge-pill badge-dark'> " +
         this.ip +
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.device))) {
+    if (isEnabled(showPillDevice) && !(await util.isEmpty(this.device))) {
       devicePill =
         "<span class='badge badge-pill badge-dark'> " +
         this.device +
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.user))) {
+    if (isEnabled(showPillUser) && !(await util.isEmpty(this.user))) {
       userPill =
         "<span class='badge badge-pill badge-dark'> " +
         this.user +
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.resCodec))) {
+    if (isEnabled(showPillResolution) && !(await util.isEmpty(this.resCodec))) {
       let resBadge = "badge-dark";
       // if(this.resCodec.toLocaleLowerCase().includes('4k') && this.resCodec.toLocaleLowerCase().includes('main 10 hdr')){
       //   resBadge = "badge-primary super-res";
@@ -525,59 +738,70 @@ class MediaCard {
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.network))) {
+    if (isEnabled(showPillNetwork) && !(await util.isEmpty(this.network))) {
       networkPill =
         "<span class='badge badge-pill badge-dark'> " +
         this.network +
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.studio))) {
+    if (isEnabled(showPillStudio) && !(await util.isEmpty(this.studio))) {
       studioPill =
         "<span class='badge badge-pill badge-dark'> " +
         this.studio +
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.audioCodec))) {
+    if (isEnabled(showPillAudioCodec) && !(await util.isEmpty(this.audioCodec))) {
       audioCodecPill =
         "<span class='badge badge-pill badge-dark'> " +
         this.audioCodec +
         "</span>";
     }
 
-    if (!(await util.isEmpty(this.pageCount))) {
+    if (isEnabled(showPillPageCount) && !(await util.isEmpty(this.pageCount))) {
       pagePill =
         "<span class='badge badge-pill badge-dark'> " +
         this.pageCount +
         " pages</span>";
     }
 
-    if (!(await util.isEmpty(this.runTime))) {
+    if (isEnabled(showPillRuntime) && !(await util.isEmpty(this.runTime))) {
       runTimePill =
         "<span class='badge badge-pill badge-dark'> " +
         this.runTime +
         "m</span>";
     }
 
-    if (!(await util.isEmpty(this.rating))) {
+    if (isEnabled(showPillRating) && !(await util.isEmpty(this.rating))) {
       if (isVideoOnDemand) {
+        // Rotten Tomatoes' own audience icon is a popcorn bucket — only accurate when the
+        // rating actually came from Plex's audienceRating (RT data). Jellyfin/Emby's
+        // CommunityRating and Kodi's generic library rating aren't RT scores, so they get a
+        // plain star instead of implying a Rotten Tomatoes source that isn't there.
+        // Font Awesome glyphs (bundled webfont) rather than unicode emoji — kiosk/embedded
+        // browsers (e.g. a bare Raspberry Pi display) frequently have no color emoji font
+        // installed, which makes emoji characters render as nothing at all.
+        const audienceIcon = isEnabled(useRtRatingIcons)
+          ? "<i class='fal fa-popcorn'></i> "
+          : "<i class='fal fa-star'></i> ";
         ratingPill =
-          "<span class='badge badge-pill badge-secondary'>Audience " +
+          "<span class='badge badge-pill badge-secondary'>" + audienceIcon +
           util.escapeHtml(String(this.rating).trim()) +
           "</span>";
       } else {
+        const criticIcon = isEnabled(useRtRatingIcons) ? "<i class='fal fa-certificate'></i> " : "";
         ratingPill =
-          "<span class='badge badge-pill badge-dark'> " + this.rating + "</span>";
+          "<span class='badge badge-pill badge-dark'> " + criticIcon + this.rating + "</span>";
       }
     }
 
-    if(this.cardType[0] == "Now Screening" || this.cardType[0] == "Playing") {
+    if(isEnabled(showPillEndTime) && (this.cardType[0] == "Now Screening" || this.cardType[0] == "Playing")) {
       endTimePill =
         "<span class='badge badge-pill badge-dark'>End: " + endTime + "</span>";
     }
 
-    if (isVideoOnDemand) {
+    if (isEnabled(showPillLeadCast) && isVideoOnDemand) {
       let n1 = String(this.actor1 || "").trim();
       let n2 = String(this.actor2 || "").trim();
       if (!n1 || !n2) {
@@ -707,9 +931,25 @@ class MediaCard {
         Your browser does not support the audio element.
       </audio>
       <div class="myDiv">
-      <div class="posterArt" style="background-image: url('` +
-      baseUrl + 
-      this.posterArtURL + `')">
+      <div class="posterArt` + (
+        isSportsCard ? " solidGradient" : (isMusicCard ? (musicGradientColors ? " solidGradient" : " musicBackdrop") : "")
+      ) + `"` + (
+        // Colors as data attributes so Resize() can rebuild this gradient once it knows the
+        // logos' actual on-screen positions — the 40%/60% stops below are a reasonable-looking
+        // first paint (tuned for a typical wide/landscape screen) but assume the logo/gap
+        // positions line up with fixed percentages of the full viewport width, which breaks
+        // on a display whose aspect ratio makes the centered logo group much narrower than
+        // the screen (e.g. a tall/portrait TV) — the gap ends up somewhere else entirely.
+        isSportsCard
+          ? ` data-away-color="` + sportsGradientColors.away + `" data-home-color="` + sportsGradientColors.home + `"`
+          : ""
+      ) + ` style="background-image: ` + (
+        isSportsCard
+          ? `linear-gradient(135deg, ` + sportsGradientColors.away + ` 0%, ` + sportsGradientColors.away + ` 40%, ` + sportsGradientColors.home + ` 60%, ` + sportsGradientColors.home + ` 100%)`
+          : musicGradientColors
+          ? `radial-gradient(ellipse at ` + musicGradientColors.x + `% ` + musicGradientColors.y + `%, ` + musicGradientColors.primary + ` 0%, ` + musicGradientColors.secondary + ` 70%)`
+          : `url('` + baseUrl + this.posterArtURL + `')`
+      ) + `">
       </div>
         <div class="banners">
           <div class="bannerBigText ` +
@@ -718,17 +958,14 @@ class MediaCard {
       `">` +
       cardCustomTitle +
       `</div>
-       </div> 
+       </div>
 
       <div id="poster` +
       this.ID +
       `" class="poster` +
       " " + fullScreen +
-      `" style="background-image: url('` +
-      baseUrl + 
-      mainPosterURL + `'), url('` +
-      baseUrl +
-      posterFallbackURL + `')">` + portraitStrip + pauseMessage + `
+      `" style="background-image: ` +
+      posterBgLayers + `">` + portraitStrip + pauseMessage + sportsLogosHtml + `
 
       <div class="progress ` +
       hidden +
@@ -747,8 +984,10 @@ class MediaCard {
         </div>
       <div class="hidden" id="poster` + this.ID + `AR">`+this.posterAR+`</div>` +
       this.triviaRender + this.linkRender +
-      `</div>
-
+      `</div>` +
+      musicInfoHtml +
+      sportsInfoHtml +
+      `
       <div class="bottomBanner mx-auto transparent` +
       ` ` + hiddenFooter + 
       `" id="bottomBanner` +

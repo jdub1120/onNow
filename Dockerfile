@@ -1,8 +1,9 @@
 FROM node:24.1.0-alpine
-# tzdata for timezone and net-tools
+# tzdata for timezone, net-tools, and python3/py3-pip for the optional Apple TV sidecar (pyatv)
 RUN apk update
 RUN apk add tzdata
 RUN apk add net-tools
+RUN apk add python3 py3-pip
 
 ENV NODE_ENV=production
 
@@ -16,6 +17,18 @@ ENV NODE_ENV=production
 WORKDIR /usr/src/app
 COPY ["package.json", "package-lock.json*", "npm-shrinkwrap.json*", "./"]
 RUN npm install --production --silent && mv node_modules ../
+
+# Apple TV sidecar (pyatv) — dedicated venv, since Alpine's system Python is "externally
+# managed" (PEP 668) and refuses a bare `pip install`. POSTERR_APPLETV_PYTHON tells Node
+# which interpreter to spawn; without it, the feature just stays disabled.
+# pyatv's chacha20poly1305-reuseable dependency compiles a native (cffi) extension, so a
+# C/C++ toolchain is needed at build time only — removed again afterward to keep the image slim.
+COPY sidecar/requirements.txt ./sidecar/requirements.txt
+RUN apk add --no-cache --virtual .appletv-build-deps gcc g++ musl-dev libffi-dev python3-dev && \
+    python3 -m venv /opt/appletv-venv && \
+    /opt/appletv-venv/bin/pip install --no-cache-dir -r sidecar/requirements.txt && \
+    apk del .appletv-build-deps
+ENV POSTERR_APPLETV_PYTHON=/opt/appletv-venv/bin/python3
 
 COPY . .
 

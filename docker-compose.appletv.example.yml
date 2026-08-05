@@ -1,0 +1,30 @@
+# Example: enable Apple TV mDNS discovery/pairing from inside the container (Linux only).
+#
+# The sidecar's ongoing polling of an ALREADY-PAIRED device only needs plain IP reachability
+# and works fine on the default bridge network — you don't need this file just to run Apple TV
+# integration. This overlay is only for the "Discover devices on network" / pairing flow, which
+# needs multicast (mDNS) visibility into your LAN.
+#
+# host networking is Linux-only (not available on Docker Desktop for Mac/Windows) and is
+# mutually exclusive with the `ports:` mapping in docker-compose.yml — with network_mode: host,
+# the container shares the host's network stack directly and PosterX listens on the host's
+# port 3000 (not 9876), ignoring `ports:` entirely.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.appletv.example.yml up -d
+#
+# With network_mode: host, the container shares the host's network stack directly, so the
+# `ports: - 9876:3000` mapping and `extra_hosts` from docker-compose.yml become moot (Compose
+# ignores/warns on published ports under host networking) — PosterX will be reachable directly
+# on the host's own port 3000 instead of 9876.
+#
+# If you're not on Linux, or don't want host networking: pair once from any machine on the
+# same LAN using `atvremote pair` (see sidecar/requirements.txt for the pyatv version), then
+# add the device manually in Settings → Apple TV using its identifier/address/credentials —
+# ongoing polling doesn't need mDNS.
+
+version: "3.8"
+
+services:
+  posterr:
+    network_mode: host

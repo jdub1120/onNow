@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-control" content="public">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="<%=baseUrl%>/css/settings-styles.css">
+  <link rel="stylesheet" href="<%=baseUrl%>/css/light.min.css">
+  <link rel="stylesheet" href="<%=baseUrl%>/css/font-awesome.min.css">
+  <title>OnNow — Apple TV</title>
+  <link rel="shortcut icon" type="image/png" href="<%=baseUrl%>/favicons/favicon.ico" />
+</head>
+<body>
+  <%if(!user.valid){%><script language='javascript'>
+    window.location.href = '<%=baseUrl%>/logon';
+  </script><%}%>
+  <%- include('new-features-banner.ejs') %>
+  <div class="container">
+    <nav aria-label="breadcrumb" class="main-breadcrumb">
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="<%=baseUrl%>/">OnNow</a></li>
+        <li class="breadcrumb-item"><a href="<%=baseUrl%>/settings">Settings</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Apple TV</li>
+      </ol>
+    </nav>
+    <div class="row gutters-sm">
+      <div class="col-md-4 d-none d-md-block">
+        <div class="card">
+          <div class="card-body">
+            <nav class="nav flex-column nav-pills nav-gap-y-1">
+              <a href="<%=baseUrl%>/settings" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-cog"></i><span class="menu">Settings</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/sync" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-sync"></i><span class="menu">Sync</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/now-showing" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-film"></i><span class="menu">Now Showing</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/appletv" class="nav-item nav-link has-icon nav-link-faded active">
+                <i class="fal fa-tv"></i><span class="menu">Apple TV</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/ads" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-bullhorn"></i><span class="menu">Ads</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/holidays" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-snowflake"></i><span class="menu">Holidays</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/tmdb-api" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-key"></i><span class="menu">TMDB API</span>
+              </a>
+              <a href="<%=baseUrl%>/settings/cache" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-database"></i><span class="menu">Cache</span>
+              </a>
+              <a href="<%=baseUrl%>/debug" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-debug"></i><span class="menu">Debug</span>
+              </a>
+              <a href="<%=baseUrl%>/settings#about" class="nav-item nav-link has-icon nav-link-faded">
+                <i class="fal fa-person-sign"></i><span class="menu">About</span>
+              </a>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header border-bottom mb-3 d-flex d-md-none">
+            <ul class="nav nav-tabs card-header-tabs nav-gap-x-1" role="tablist">
+              <li class="nav-item"><a href="<%=baseUrl%>/settings" class="nav-link has-icon"><i class="fal fa-cog"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/sync" class="nav-link has-icon"><i class="fal fa-sync"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/cache" class="nav-link has-icon"><i class="fal fa-database"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/now-showing" class="nav-link has-icon"><i class="fal fa-film"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/appletv" class="nav-link has-icon active"><i class="fal fa-tv"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/ads" class="nav-link has-icon"><i class="fal fa-bullhorn"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/holidays" class="nav-link has-icon"><i class="fal fa-snowflake"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/tmdb-api" class="nav-link has-icon"><i class="fal fa-key"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/debug" class="nav-link has-icon"><i class="fal fa-debug"></i></a></li>
+              <li class="nav-item ml-auto"><a href="<%=baseUrl%>/settings#about" class="nav-link has-icon"><i class="fal fa-person-sign"></i></a></li>
+            </ul>
+          </div>
+          <div class="card-body">
+            <% if (typeof appleTvNotice !== "undefined" && appleTvNotice && appleTvNotice.text) { %>
+              <div class="alert alert-<%= appleTvNotice.ok ? "success" : "danger" %>" role="alert"><%= appleTvNotice.text %></div>
+            <% } %>
+
+            <h4 class="mb-3">Apple TV</h4>
+            <p class="text-muted">Show a poster for whatever is currently playing in the native Apple TV app on one or more Apple TVs, alongside your regular media server. Requires a small local helper process (Python + <a href="https://pyatv.dev/" target="_blank" rel="noopener">pyatv</a>) that OnNow starts automatically when this is enabled.</p>
+
+            <form method="post" action="<%=baseUrl%>/settings/appletv/toggle-enabled" class="form-inline mb-4">
+              <label for="enableAppleTv" class="mr-2 mb-0"><strong>Apple TV integration:</strong></label>
+              <select name="enableAppleTv" id="enableAppleTv" class="form-control form-control-sm mr-2">
+                <option value="true" <%= settings.enableAppleTv == 'true' ? 'selected' : '' %>>Enabled</option>
+                <option value="false" <%= settings.enableAppleTv != 'true' ? 'selected' : '' %>>Disabled</option>
+              </select>
+              <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+
+            <div class="border rounded p-3 mb-4 bg-light">
+              <h6 class="text-uppercase text-muted small mb-2">Helper process status</h6>
+              <p class="mb-0" id="sidecarStatusLine">
+                <%= sidecarAvailable ? "Running" : "Not running" %>
+                <% if (!settings.enableAppleTv || settings.enableAppleTv !== 'true') { %> (enable the integration above to start it)<% } %>
+              </p>
+            </div>
+
+            <h5 class="mb-3">Paired devices</h5>
+            <% if (!devices || devices.length === 0) { %>
+              <p class="text-muted">No Apple TVs paired yet. Discover one on your network below.</p>
+            <% } else { %>
+              <ul class="list-unstyled mb-4">
+                <% devices.forEach(function (d) { %>
+                <li class="mb-2 pb-2 border-bottom d-flex flex-wrap align-items-center justify-content-between">
+                  <div>
+                    <strong><%= d.name %></strong>
+                    <span class="text-muted"> — <%= d.address %></span><br>
+                    <span class="small <%= d.lastSeenReachable ? 'text-success' : 'text-danger' %>">
+                      <%= d.lastSeenReachable ? 'Reachable' : (d.lastSeenAt ? 'Not reachable' : 'Not yet contacted') %>
+                    </span>
+                    <% if (!d.credentials || !d.credentials.companion || !d.credentials.airplay) { %>
+                      <span class="small text-danger"> — needs re-pairing</span>
+                    <% } %>
+                  </div>
+                  <div>
+                    <form method="post" action="<%=baseUrl%>/settings/appletv/device/<%= encodeURIComponent(d.identifier) %>/toggle" class="d-inline">
+                      <button type="submit" class="btn btn-sm btn-outline-secondary"><%= d.enabled ? 'Disable' : 'Enable' %></button>
+                    </form>
+                    <form method="post" action="<%=baseUrl%>/settings/appletv/device/<%= encodeURIComponent(d.identifier) %>/remove" class="d-inline" onsubmit="return confirm('Remove this paired Apple TV?');">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                    </form>
+                  </div>
+                </li>
+                <% }); %>
+              </ul>
+            <% } %>
+
+            <h5 class="mb-3">Add a device</h5>
+            <form method="post" action="<%=baseUrl%>/settings/appletv/discover" class="mb-3">
+              <button type="submit" class="btn btn-outline-primary">Discover devices on network</button>
+            </form>
+
+            <% if (typeof discovered !== "undefined" && discovered && discovered.length > 0) { %>
+              <div id="discoveredList" class="mb-4">
+                <% discovered.forEach(function (dv) { %>
+                  <% var alreadyPaired = devices && devices.some(function(d){ return d.identifier === dv.identifier; }); %>
+                  <% if (!alreadyPaired) { %>
+                  <div class="border rounded p-2 mb-2 d-flex flex-wrap align-items-center justify-content-between">
+                    <div><strong><%= dv.name %></strong><span class="text-muted"> — <%= dv.address %> (<%= dv.model %>)</span></div>
+                    <button type="button" class="btn btn-sm btn-primary start-pair-btn"
+                      data-identifier="<%= dv.identifier %>" data-address="<%= dv.address %>" data-name="<%= dv.name %>">
+                      Pair
+                    </button>
+                  </div>
+                  <% } %>
+                <% }); %>
+              </div>
+            <% } %>
+
+            <div id="pairingWizard" class="border rounded p-3 mb-4 d-none bg-light">
+              <h6 class="text-uppercase text-muted small mb-2" id="pairingStepLabel">Pairing</h6>
+              <p class="mb-2" id="pairingInstructions"></p>
+              <div class="form-inline mb-2">
+                <input type="text" class="form-control mr-2" id="pinInput" placeholder="PIN shown on TV" maxlength="4" inputmode="numeric">
+                <button type="button" class="btn btn-primary mr-2" id="pinSubmitBtn">Submit PIN</button>
+                <button type="button" class="btn btn-outline-danger" id="pairingCancelBtn">Cancel</button>
+              </div>
+              <div id="pairingError" class="text-danger small"></div>
+            </div>
+
+            <p class="small text-muted mb-0">Pairing requires two PINs, one at a time — the Apple TV shows each PIN on screen when requested.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var baseUrl = <%- JSON.stringify(baseUrl) %>;
+      var wizard = document.getElementById("pairingWizard");
+      var stepLabel = document.getElementById("pairingStepLabel");
+      var instructions = document.getElementById("pairingInstructions");
+      var pinInput = document.getElementById("pinInput");
+      var pinSubmitBtn = document.getElementById("pinSubmitBtn");
+      var cancelBtn = document.getElementById("pairingCancelBtn");
+      var errorEl = document.getElementById("pairingError");
+
+      var state = null; // { identifier, address, name, protocol, pairingSessionId, credentials: {} }
+
+      function resetWizard() {
+        state = null;
+        wizard.classList.add("d-none");
+        pinInput.value = "";
+        errorEl.textContent = "";
+      }
+
+      function postJson(url, body) {
+        return fetch(url, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body || {}),
+        }).then(function (r) { return r.json(); });
+      }
+
+      function startProtocol(protocol) {
+        stepLabel.textContent = protocol === "companion" ? "Step 1 of 2: Companion pairing" : "Step 2 of 2: AirPlay pairing";
+        instructions.textContent = "Requesting a PIN — watch the Apple TV screen...";
+        errorEl.textContent = "";
+        pinSubmitBtn.disabled = true;
+        postJson(baseUrl + "/settings/appletv/pair/start", {
+          identifier: state.identifier,
+          address: state.address,
+          protocol: protocol,
+        }).then(function (data) {
+          pinSubmitBtn.disabled = false;
+          if (!data.ok) {
+            errorEl.textContent = data.error || "Could not start pairing.";
+            return;
+          }
+          state.protocol = protocol;
+          state.pairingSessionId = data.pairingSessionId;
+          instructions.textContent = "Enter the PIN now showing on the TV.";
+        }).catch(function () {
+          pinSubmitBtn.disabled = false;
+          errorEl.textContent = "Network error starting pairing.";
+        });
+      }
+
+      document.querySelectorAll(".start-pair-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          state = {
+            identifier: btn.getAttribute("data-identifier"),
+            address: btn.getAttribute("data-address"),
+            name: btn.getAttribute("data-name"),
+            credentials: {},
+          };
+          wizard.classList.remove("d-none");
+          startProtocol("companion");
+        });
+      });
+
+      pinSubmitBtn.addEventListener("click", function () {
+        if (!state || !state.pairingSessionId) return;
+        var pin = pinInput.value.trim();
+        if (!pin) return;
+        pinSubmitBtn.disabled = true;
+        postJson(baseUrl + "/settings/appletv/pair/submit-pin", {
+          pairingSessionId: state.pairingSessionId,
+          pin: pin,
+        }).then(function (data) {
+          pinSubmitBtn.disabled = false;
+          if (!data.ok) {
+            errorEl.textContent = data.error || "Incorrect PIN — try again.";
+            return;
+          }
+          state.credentials[data.protocol] = data.credentials;
+          pinInput.value = "";
+          if (state.protocol === "companion") {
+            startProtocol("airplay");
+          } else {
+            instructions.textContent = "Saving device...";
+            postJson(baseUrl + "/settings/appletv/save-device", {
+              identifier: state.identifier,
+              address: state.address,
+              name: state.name,
+              credentials: state.credentials,
+            }).then(function (saveData) {
+              if (saveData.ok) {
+                window.location.reload();
+              } else {
+                errorEl.textContent = saveData.error || "Could not save device.";
+              }
+            });
+          }
+        }).catch(function () {
+          pinSubmitBtn.disabled = false;
+          errorEl.textContent = "Network error submitting PIN.";
+        });
+      });
+
+      cancelBtn.addEventListener("click", function () {
+        if (state && state.pairingSessionId) {
+          postJson(baseUrl + "/settings/appletv/pair/cancel", { pairingSessionId: state.pairingSessionId });
+        }
+        resetWizard();
+      });
+    })();
+  </script>
+</body>
+</html>

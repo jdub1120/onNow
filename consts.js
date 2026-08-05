@@ -40,6 +40,30 @@ const DEFAULT_SETTINGS = {
   showAuthors: "false",
   /** Album / track artist line when metadata provides it (music) */
   showAlbumArtist: "false",
+  /** Marquee tagline text (movie tagline / show-episode line / etc.) — default "true" matches
+   * pre-toggle behavior: shown whenever the footer itself is visible. */
+  showMovieTagline: "true",
+  /** Footer pill visibility — all default "true" (matches pre-toggle behavior: shown whenever
+   * the underlying data is present). Applies to on-demand, Now Playing/Now Screening, etc. */
+  showPillYear: "true",
+  showPillGenre: "true",
+  showPillContentRating: "true",
+  showPillRating: "true",
+  showPillRuntime: "true",
+  showPillResolution: "true",
+  showPillAudioCodec: "true",
+  showPillNetwork: "true",
+  showPillStudio: "true",
+  showPillLibrary: "true",
+  showPillEpisode: "true",
+  showPill3D: "true",
+  showPillEndTime: "true",
+  showPillPageCount: "true",
+  /** Compact top-2-actor pills shown on on-demand movie/show/episode cards */
+  showPillLeadCast: "true",
+  showPillUser: "true",
+  showPillDevice: "true",
+  showPillIP: "true",
   /** Show main cover poster for music (album / track) cards */
   displayPosterAlbum: "true",
   /** Show main poster for movie and TV cards (movie / episode / show) */
@@ -60,6 +84,7 @@ const DEFAULT_SETTINGS = {
   titleColour: "#FAFAD2",
   footColour: "#FAFAD2",
   bgColour: "#000000",
+  progressColour: "#007bff",
   enableNS: "true",
   /** Insert Now Playing (media server) slides after this many other poster slides; 0 = off */
   nowPlayingEveryPosters: 0,
@@ -154,6 +179,8 @@ const DEFAULT_SETTINGS = {
   contentRatings: "",
   enableAwtrix: "false",
   awtrixIP: "",
+  enableAppleTv: "false",
+  appleTvSidecarPort: 3011,
   enableLinks: "false",
   links: "",
   excludeLibs: "",

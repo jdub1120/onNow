@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="<%=baseUrl%>/css/settings-styles.css">
   <link rel="stylesheet" href="<%=baseUrl%>/css/light.min.css">
   <link rel="stylesheet" href="<%=baseUrl%>/css/font-awesome.min.css">
-  <title>PosterX — TMDB API Key</title>
+  <title>OnNow — TMDB API Key</title>
 </head>
 <body>
   <%if(!user.valid){%><script language='javascript'>window.location.href = '<%=baseUrl%>/logon';</script><%}%>
@@ -19,7 +19,7 @@
   <div class="container">
     <nav aria-label="breadcrumb" class="main-breadcrumb">
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="<%=baseUrl%>/">PosterX</a></li>
+        <li class="breadcrumb-item"><a href="<%=baseUrl%>/">OnNow</a></li>
         <li class="breadcrumb-item"><a href="<%=baseUrl%>/settings">Settings</a></li>
         <li class="breadcrumb-item active" aria-current="page">TMDB API</li>
       </ol>
@@ -31,6 +31,7 @@
             <a href="<%=baseUrl%>/settings" class="nav-item nav-link has-icon nav-link-faded"><i class="fal fa-cog"></i><span class="menu">Settings</span></a>
             <a href="<%=baseUrl%>/settings/sync" class="nav-item nav-link has-icon nav-link-faded"><i class="fal fa-sync"></i><span class="menu">Sync</span></a>
             <a href="<%=baseUrl%>/settings/now-showing" class="nav-item nav-link has-icon nav-link-faded"><i class="fal fa-film"></i><span class="menu">Now Showing</span></a>
+            <a href="<%=baseUrl%>/settings/appletv" class="nav-item nav-link has-icon nav-link-faded"><i class="fal fa-tv"></i><span class="menu">Apple TV</span></a>
             <a href="<%=baseUrl%>/settings/ads" class="nav-item nav-link has-icon nav-link-faded"><i class="fal fa-bullhorn"></i><span class="menu">Ads</span></a>
             <a href="<%=baseUrl%>/settings/holidays" class="nav-item nav-link has-icon nav-link-faded"><i class="fal fa-snowflake"></i><span class="menu">Holidays</span></a>
             <a href="<%=baseUrl%>/settings/tmdb-api" class="nav-item nav-link has-icon nav-link-faded active"><i class="fal fa-key"></i><span class="menu">TMDB API</span></a>
@@ -52,6 +53,7 @@
               <li class="nav-item"><a href="<%=baseUrl%>/settings/sync" class="nav-link has-icon"><i class="fal fa-sync"></i></a></li>
               <li class="nav-item"><a href="<%=baseUrl%>/settings/cache" class="nav-link has-icon"><i class="fal fa-database"></i></a></li>
               <li class="nav-item"><a href="<%=baseUrl%>/settings/now-showing" class="nav-link has-icon"><i class="fal fa-film"></i></a></li>
+              <li class="nav-item"><a href="<%=baseUrl%>/settings/appletv" class="nav-link has-icon"><i class="fal fa-tv"></i></a></li>
               <li class="nav-item"><a href="<%=baseUrl%>/settings/ads" class="nav-link has-icon"><i class="fal fa-bullhorn"></i></a></li>
               <li class="nav-item"><a href="<%=baseUrl%>/settings/holidays" class="nav-link has-icon"><i class="fal fa-snowflake"></i></a></li>
               <li class="nav-item"><a href="<%=baseUrl%>/settings#collapseFive" class="nav-link has-icon"><i class="fal fa-play"></i></a></li>
@@ -62,7 +64,8 @@
           </div>
           <div class="card-body">
           <h4 class="mb-3">TMDB API Key</h4>
-          <p class="small text-muted">Used by Now Showing movie search and add flow. You can also set <code>TMDB_API_KEY</code> environment variable; saved key here takes priority.</p>
+          <p class="small text-muted">Used by Now Showing movie search and add flow, and to pull posters/artwork for Apple TV Now Playing (movies, shows, and backdrop fills) — without a key, those features can't fetch poster art. You can also set <code>TMDB_API_KEY</code> environment variable; saved key here takes priority.</p>
+          <p class="small text-muted">Don't have one? Create a free TMDB account and request a key (choose "Developer" / API, v3 auth) at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a> — approval is usually instant.</p>
           <% if (notice && notice.text) { %>
             <div class="alert <%= notice.ok ? 'alert-success' : 'alert-danger' %>"><%= notice.text %></div>
           <% } %>
