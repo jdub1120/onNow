@@ -3,7 +3,7 @@
 
 > **About this repository**  
 > **OnNow** is an **AI-assisted fork** of [PosterrX](https://github.com/binarygeek119/posterrX) by **binarygeek119**, which is itself a fork of the original [Posterr](https://github.com/petersem/posterr) by **Matt Petersen**. Upstream (PosterrX) owns the design this fork builds on; this repo adds the features in **New in this fork** below.  
-> **Docker image:** [`jdub1120/onnow`](https://hub.docker.com/r/jdub1120/onnow) (`:latest`)  
+> **Source:** [github.com/jdub1120/onNow](https://github.com/jdub1120/onNow) · **Docker image:** [`jdub1120/onnow`](https://hub.docker.com/r/jdub1120/onnow) (`:latest`)  
 > **Sister project:** [binarygeek119/ubuntudisplayos](https://github.com/binarygeek119/ubuntudisplayos) for Ubuntu-based multi-display kiosk hosts that pair well with OnNow.
 
 ![Platforms](https://img.shields.io/badge/platform-docker-blue)
@@ -14,7 +14,7 @@
 
 Original Posterr community Discord: [https://discord.gg/TcnEkMEf9J](https://discord.gg/TcnEkMEf9J) — please don't ask them for OnNow support.  
 PosterrX community Discord: [https://discord.gg/AEhVjqX4Af](https://discord.gg/AEhVjqX4Af) — please don't ask them for OnNow support either; OnNow is a separate, further fork maintained independently.  
-OnNow does not yet have its own dedicated support channel.  
+OnNow support/issues: [github.com/jdub1120/onNow/issues](https://github.com/jdub1120/onNow/issues).  
 **Default settings password:** `raidisnotabackup`
 
 ---
@@ -236,7 +236,7 @@ Should you encounter a problem, the solution may be listed [HERE](https://github
 
 ---
 ## Support
- - OnNow does not yet have its own dedicated support channel.
+ - OnNow support/issues: [github.com/jdub1120/onNow/issues](https://github.com/jdub1120/onNow/issues).
  - Original Posterr community: [https://discord.gg/TcnEkMEf9J](https://discord.gg/TcnEkMEf9J) — please don't ask them for OnNow support.
  - PosterrX community: [https://discord.gg/AEhVjqX4Af](https://discord.gg/AEhVjqX4Af) — please don't ask them for OnNow support either; OnNow is a separate, further fork.
 
