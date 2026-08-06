@@ -213,6 +213,36 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
     if (newEqIcon && liveEqIcon) {
       liveEqIcon.classList.toggle("paused", newEqIcon.classList.contains("paused"));
     }
+
+    // Sports: the matchup title (what singleCardKey() is keyed on) doesn't change over the
+    // course of a game, so without this the score, inning, and bases/outs would stay frozen
+    // at whatever they were on the card's very first render — only ever updating if something
+    // else forces a full rebuild (e.g. a different game starting). These three blocks are
+    // pure text/CSS shapes with no images, so swapping their outerHTML wholesale each poll is
+    // safe (no flash) and naturally handles a game going from "not started yet" (no inning/
+    // bases markup at all) to live.
+    var newVs = temp.querySelector(".sportsVs");
+    var liveVs = document.querySelector(".sportsVs");
+    var isSportsCardPatch = !!(newVs && liveVs);
+    if (isSportsCardPatch) {
+      liveVs.outerHTML = newVs.outerHTML;
+      [".sportsGameState", ".sportsBases"].forEach(function (sel) {
+        var newEl = temp.querySelector(sel);
+        var liveEl = document.querySelector(sel);
+        if (newEl && liveEl) {
+          liveEl.outerHTML = newEl.outerHTML;
+        } else if (newEl && !liveEl) {
+          var anchor = document.querySelector(".sportsVs");
+          if (anchor) anchor.insertAdjacentHTML(sel === ".sportsBases" ? "beforebegin" : "afterend", newEl.outerHTML);
+        } else if (!newEl && liveEl) {
+          liveEl.remove();
+        }
+      });
+      // The swapped-in markup is server-rendered with a "hidden" class and no inline
+      // position — Resize() is what unhides and positions all of these (see its isSportsArt
+      // branch), and it's safe/idempotent to call again here.
+      Resize(1);
+    }
   }
 
   function openNav() {
