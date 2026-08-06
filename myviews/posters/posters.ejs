@@ -934,13 +934,21 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
             return 50 + (t / gradHalfLen) * 50;
           }
 
+          // Y is deliberately the screen's true vertical center, not the logos' own (higher)
+          // position — projecting the box's own center always lands on exactly 50% by
+          // construction of the gradient-line algorithm, and a transition centered on exactly
+          // 50% is what guarantees an equal-area black/blue split (a line through a rectangle's
+          // center always bisects its area, on any angle or aspect ratio). Using the logos' own
+          // Y instead pulls the transition's center off of 50% — barely noticeable on a
+          // roughly-square window, but a large, visible area imbalance on a very tall/narrow
+          // screen, since the logos sit above the group's true center (the caption/title below
+          // them pulls the *group's* center down, but the logos themselves stay above it).
           var awayEdgeX = groupCenterX + awayCenterXLocal + logoSize / 2;
-          var awayEdgeY = sportsGroupTop + awayTopLocal + logoSize / 2;
           var homeEdgeX = groupCenterX + homeCenterXLocal - logoSize / 2;
-          var homeEdgeY = sportsGroupTop + homeTopLocal + logoSize / 2;
+          var gradCenterY = gradH / 2;
 
-          var awayRightPct = gradientPercentAt(awayEdgeX, awayEdgeY);
-          var homeLeftPct = gradientPercentAt(homeEdgeX, homeEdgeY);
+          var awayRightPct = gradientPercentAt(awayEdgeX, gradCenterY);
+          var homeLeftPct = gradientPercentAt(homeEdgeX, gradCenterY);
           // Keep a minimum gap even if the logos end up touching/overlapping at extreme aspect
           // ratios, and clamp to a sane range so the stops stay in ascending order.
           if (homeLeftPct - awayRightPct < 4) {
