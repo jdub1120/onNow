@@ -835,7 +835,6 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
 
         var groupWidth = Math.min(window.innerWidth * .82, window.innerHeight * 1.6);
         var logoSize = groupWidth * .3;
-        var verticalOffset = logoSize * .35; // how much lower the home logo sits than the away logo
         var sportsGap = Math.max(8, Math.round(groupWidth * .025));
         var sportsTitleSize = Math.max(14, Math.round(groupWidth * .034));
         var sportsNetworkSize = Math.max(12, Math.round(groupWidth * .026));
@@ -844,11 +843,12 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
 
         // Local (group-relative) coordinates first, then shifted down by groupTop once the
         // total height (including caption) is known, so the whole thing centers vertically.
+        // Both logos sit at the same vertical position (no diagonal stagger).
         var awayCenterXLocal = -groupWidth * .25;
         var homeCenterXLocal = groupWidth * .25;
         var awayTopLocal = 0;
-        var homeTopLocal = verticalOffset;
-        var logosBottomLocal = homeTopLocal + logoSize; // home is lower, so its bottom is the lowest point
+        var homeTopLocal = 0;
+        var logosBottomLocal = homeTopLocal + logoSize;
 
         if (sportsInfoEl.length) {
           sportsInfoEl.removeClass('hidden').css({
