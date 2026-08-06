@@ -50,6 +50,7 @@ class MediaCard {
     this.sportsHomeLogo = "";
     this.sportsIsLive = false;
     this.sportsGameStarted = false;
+    this.sportsGameFinal = false;
     this.sportsAwayScore = "";
     this.sportsHomeScore = "";
     // Inning state — MLB only for now (see appletv.js).
@@ -247,10 +248,18 @@ class MediaCard {
         : "VS";
 
       // ▲/▼ for top/bottom of the inning (rather than spelling it out) under the score, and a
-      // base-runner diamond + outs dots above the score — MLB only for now.
+      // base-runner diamond + outs dots above the score — MLB only for now. Once the game's
+      // over, swap the inning row for "Final" (the last-known inning/half aren't meaningful
+      // anymore) and drop the bases/outs entirely (they'd otherwise stay frozen at whatever the
+      // last play was, which reads as broken once the post-game show is what's actually on).
       let sportsGameStateHtml = "";
       let sportsBasesHtml = "";
-      if (this.sportsInningOrdinal) {
+      if (this.sportsGameFinal) {
+        sportsGameStateHtml =
+          `<div class="sportsGameState hidden" id="sportsGameState` + this.ID + `">` +
+          `<div class="sportsInningRow">Final</div>` +
+          `</div>`;
+      } else if (this.sportsInningOrdinal) {
         const arrow = this.sportsInningHalf === "bottom" ? "▼" : "▲";
         sportsGameStateHtml =
           `<div class="sportsGameState hidden" id="sportsGameState` + this.ID + `">` +

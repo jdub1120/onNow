@@ -187,6 +187,7 @@ class AppleTvProvider {
           // Only a live-scoreboard match carries a real score/game state — a replay match
           // (isLive false) has neither, so the card just keeps showing "VS".
           medCard.sportsGameStarted = matchup.isLive && matchup.gameState !== "pre";
+          medCard.sportsGameFinal = matchup.gameState === "post";
           medCard.sportsAwayScore = matchup.isLive ? String(matchup.away.score || "0") : "";
           medCard.sportsHomeScore = matchup.isLive ? String(matchup.home.score || "0") : "";
           // Inning/outs are baseball-specific — other sports have their own equivalents
@@ -194,10 +195,14 @@ class AppleTvProvider {
           if (matchup.isLive && medCard.sportsGameStarted && matchup.league === "mlb") {
             medCard.sportsInningHalf = matchup.inningHalf || "top";
             medCard.sportsInningOrdinal = matchup.inningNumber != null ? ordinal(matchup.inningNumber) : "";
-            medCard.sportsOuts = matchup.outs != null ? matchup.outs : null;
-            medCard.sportsOnFirst = !!matchup.onFirst;
-            medCard.sportsOnSecond = !!matchup.onSecond;
-            medCard.sportsOnThird = !!matchup.onThird;
+            // Bases/outs are meaningless once the game's over (they'd otherwise stay frozen at
+            // whatever the last play was) — only carry them while truly in progress.
+            if (!medCard.sportsGameFinal) {
+              medCard.sportsOuts = matchup.outs != null ? matchup.outs : null;
+              medCard.sportsOnFirst = !!matchup.onFirst;
+              medCard.sportsOnSecond = !!matchup.onSecond;
+              medCard.sportsOnThird = !!matchup.onThird;
+            }
           }
           // Distinctive value (no other content uses it) so the client's Resize() can
           // recognize a sports card and switch to the wide two-logo layout, the same way
