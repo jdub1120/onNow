@@ -284,6 +284,22 @@ iframe {
   opacity: 1;
 }
 
+/* Subtle dither noise over the flat gradient — smooth 8-bit gradients (especially dark tones
+   like black-to-navy) band visibly on many TVs, whose panels/video pipeline have weaker color
+   processing than a computer monitor. A faint noise layer breaks up those discrete steps into
+   something the eye reads as a smooth blend instead. Confined within .posterArt's own z-index:0
+   stacking context, so it can never render above the logos/text that sit on top of it. */
+.posterArt.solidGradient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44NSIgbnVtT2N0YXZlcz0iMiIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCUyM24pIi8+PC9zdmc+");
+  background-repeat: repeat;
+}
+
 .poster {
   max-width: 100%;
   vertical-align: top;
