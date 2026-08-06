@@ -948,50 +948,59 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
 
         var vsCenterYLocal = (awayTopLocal + logoSize / 2 + homeTopLocal + logoSize / 2) / 2;
 
-        // Base-runner diamond sits above the score — MLB only, so this no-ops via jQuery's
-        // empty-selection guard when the element wasn't rendered.
-        if (sportsBasesEl.length) {
-          var sportsBasesSize = Math.max(12, Math.round(logoSize * .09));
-          sportsBasesEl.removeClass('hidden').css({ 'font-size': sportsBasesSize + 'px' });
+        // Bases/outs, score, and inning are laid out as one stacked group, centered as a
+        // whole on the logos' shared vertical center — rather than each piece being offset
+        // from that center by its own fixed amount (which left the group's actual visual
+        // center off from the logos'). Apply sizing first so outerHeight() below reflects the
+        // real rendered box, then measure every piece before positioning any of them.
+        var hasBases = sportsBasesEl.length > 0;
+        var hasInning = sportsGameStateEl.length > 0;
+        var sportsInningSize = Math.max(13, Math.round(logoSize * .075));
+
+        if (hasBases) {
+          sportsBasesEl.removeClass('hidden').css({ 'font-size': Math.max(12, Math.round(logoSize * .09)) + 'px' });
+        }
+        sportsVsEl.removeClass('hidden').css({ 'font-size': sportsVsSize + 'px' });
+        if (hasInning) {
+          sportsGameStateEl.removeClass('hidden').css({ 'font-size': Math.max(10, Math.round(logoSize * .05)) + 'px' });
+          sportsGameStateEl.find('.sportsInningRow').css('font-size', sportsInningSize + 'px');
+        }
+
+        var basesHeight = hasBases ? sportsBasesEl.outerHeight() : 0;
+        var vsHeight = sportsVsEl.outerHeight();
+        var inningHeight = hasInning ? sportsGameStateEl.outerHeight() : 0;
+        var stackGap = Math.max(4, Math.round(sportsGap * .5));
+        var stackHeight = (hasBases ? basesHeight + stackGap : 0) + vsHeight + (hasInning ? stackGap + inningHeight : 0);
+        var cursorY = sportsGroupTop + vsCenterYLocal - stackHeight / 2;
+
+        if (hasBases) {
           var basesWidth = sportsBasesEl.outerWidth();
-          var basesHeight = sportsBasesEl.outerHeight();
-          var basesBottom = sportsGroupTop + vsCenterYLocal - sportsVsSize * .7 - sportsGap * .6;
           sportsBasesEl.css({
             'left': groupCenterX + 'px',
             'margin-left': (-basesWidth / 2) + 'px',
-            'top': (basesBottom - basesHeight) + 'px'
+            'top': cursorY + 'px'
           });
+          cursorY += basesHeight + stackGap;
         }
 
         // Wider than plain "VS" needs, to comfortably fit a score like "12 - 8" once the game
         // starts (see MediaCard.js) without wrapping.
-        sportsVsEl.removeClass('hidden').css({
-          'font-size': sportsVsSize + 'px',
+        sportsVsEl.css({
           'left': groupCenterX + 'px',
           'margin-left': (-groupWidth * .1) + 'px',
           'width': (groupWidth * .2) + 'px',
-          // The extra -8px nudges the score up a bit without touching vsCenterYLocal itself
-          // (the inning row below is positioned from that same variable, so this keeps it
-          // exactly where it was).
-          'top': (sportsGroupTop + vsCenterYLocal - 4) + 'px',
-          'margin-top': (-sportsVsSize * .7) + 'px'
+          'top': cursorY + 'px'
         });
+        cursorY += vsHeight + stackGap;
 
-        // Inning + outs dots directly under the score — MLB only, so this no-ops via jQuery's
-        // empty-selection guard when the element wasn't rendered.
-        if (sportsGameStateEl.length) {
-          var sportsInningSize = Math.max(13, Math.round(logoSize * .075));
-          sportsGameStateEl.removeClass('hidden').css({
-            'font-size': Math.max(10, Math.round(logoSize * .05)) + 'px',
-            'left': groupCenterX + 'px'
-          });
-          sportsGameStateEl.find('.sportsInningRow').css('font-size', sportsInningSize + 'px');
+        if (hasInning) {
           var gameStateWidth = sportsGameStateEl.outerWidth();
-          var gameStateTop = sportsGroupTop + vsCenterYLocal + sportsVsSize * .5 + sportsGap * .6;
           sportsGameStateEl.css({
+            'left': groupCenterX + 'px',
             'margin-left': (-gameStateWidth / 2) + 'px',
-            'top': gameStateTop + 'px'
+            'top': cursorY + 'px'
           });
+          cursorY += inningHeight + stackGap;
         }
 
         if (sportsInfoEl.length) {
