@@ -959,7 +959,7 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
           // Soften the blend by widening the transition zone outward from the gap's edges
           // (rather than the hard-ish cutoff right at the logos), while still keeping it
           // roughly centered between them so it doesn't wash back under either logo.
-          var soften = (homeLeftPct - awayRightPct) * .8;
+          var soften = (homeLeftPct - awayRightPct) * 1.3;
           awayRightPct -= soften;
           homeLeftPct += soften;
           awayRightPct = Math.max(0, Math.min(100, awayRightPct));
