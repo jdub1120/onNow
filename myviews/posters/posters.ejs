@@ -163,6 +163,15 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
   var NOW_PLAYING_POLL_MS = 5000;
   var getCardsRetryTimer = null;
   var getCardsFailCount = 0;
+  // When the "Rotate display -90°" setting is on (for landscape-only devices mounted in
+  // portrait, e.g. a 16:9 TV physically rotated), header.ejs applies a CSS transform to the
+  // whole <html> element. Per the CSS spec, once an ancestor has any transform, position:fixed
+  // descendants become positioned relative to THAT element's own box instead of the raw
+  // viewport — and that box is deliberately width/height-swapped (100vh/100vw) to hold the
+  // rotated content. window.innerWidth/innerHeight never reflect that swap (they always report
+  // the raw, unrotated viewport), so code that positions fixed elements needs to swap them back
+  // itself when this is on, or everything computes against the wrong aspect ratio entirely.
+  var isDisplayRotated = <%- JSON.stringify(String(globals.rotate) === "true") %>;
   function resolveGetCardsPath() {
     if (typeof getCardsPath === "string" && getCardsPath.trim() !== "") {
       return getCardsPath;
@@ -822,18 +831,24 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
           progressEl.css({ 'position': 'fixed', 'top': cursorTop + 'px' });
         }
       } else if (isSportsArt) {
-        // Sports: two team logos floating on the diagonal gradient background — no boxed
-        // panel. Away (left) logo sits higher, home (right) logo sits lower, echoing the
-        // 45° gradient direction; "VS" sits at the midpoint between their centers. Caption
-        // (title/network/LIVE) follows below. Whole group is centered on screen, same
-        // approach as the music layout. No progress bar — there's no meaningful runtime.
+        // Sports: two team logos (same height) floating on the diagonal gradient background —
+        // no boxed panel. Bases/score/inning stack sits centered between them; caption (title/
+        // network/LIVE) follows below. Whole group is centered on screen, same approach as the
+        // music layout. No progress bar — there's no meaningful runtime.
+        //
+        // Every element here is position:fixed, so on a rotated display (see isDisplayRotated
+        // above) the true containing block is <html>'s own swapped-dimension box, not the raw
+        // viewport — use effW/effH (not window.innerWidth/innerHeight directly) for anything
+        // that positions or sizes these elements.
+        var effW = isDisplayRotated ? window.innerHeight : window.innerWidth;
+        var effH = isDisplayRotated ? window.innerWidth : window.innerHeight;
         var sportsAwayLogoEl = $('#sportsLogoAway' + id);
         var sportsHomeLogoEl = $('#sportsLogoHome' + id);
         var sportsVsEl = $('#sportsVs' + id);
         var sportsGameStateEl = $('#sportsGameState' + id);
         var sportsBasesEl = $('#sportsBases' + id);
 
-        var groupWidth = Math.min(window.innerWidth * .82, window.innerHeight * 1.6);
+        var groupWidth = Math.min(effW * .82, effH * 1.6);
         var logoSize = groupWidth * .3;
         var sportsGap = Math.max(8, Math.round(groupWidth * .025));
         var sportsTitleSize = Math.max(14, Math.round(groupWidth * .034));
@@ -864,8 +879,8 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
         var sportsCaptionHeight = sportsInfoEl.length ? sportsInfoEl.outerHeight() : 0;
 
         var sportsGroupHeight = logosBottomLocal + (sportsCaptionHeight > 0 ? sportsGap + sportsCaptionHeight : 0);
-        var sportsGroupTop = Math.max(0, (window.innerHeight - sportsGroupHeight) / 2);
-        var groupCenterX = window.innerWidth / 2;
+        var sportsGroupTop = Math.max(0, (effH - sportsGroupHeight) / 2);
+        var groupCenterX = effW / 2;
 
         // No boxed panel for sports — the logos float directly on the gradient — so the
         // poster element itself carries no visible box styling (unlike music's rounded/
@@ -909,8 +924,8 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
           var gradAngleRad = 135 * Math.PI / 180;
           var gradDirX = Math.sin(gradAngleRad);
           var gradDirY = -Math.cos(gradAngleRad);
-          var gradW = window.innerWidth;
-          var gradH = window.innerHeight;
+          var gradW = effW;
+          var gradH = effH;
           // Half-length of the gradient line (center to each end) for this box + angle.
           var gradHalfLen = (Math.abs(gradW * gradDirX) + Math.abs(gradH * gradDirY)) / 2;
           // Projects a screen point onto the gradient line and returns its stop percentage.
