@@ -301,7 +301,7 @@ class MediaCard {
 
       sportsInfoHtml =
         `<div class="sportsInfo hidden" id="sportsInfo` + this.ID + `">` +
-        (this.sportsIsLive ? `<div class="sportsLiveBadge"><span class="sportsLiveDot"></span>LIVE</div>` : "") +
+        (this.sportsIsLive && !this.sportsGameFinal ? `<div class="sportsLiveBadge"><span class="sportsLiveDot"></span>LIVE</div>` : "") +
         `<div class="sportsMatchupTitle">` + awayName + ` at ` + homeName + `</div>` +
         (network ? `<div class="sportsNetwork">` + network + `</div>` : "") +
         devicePillHtml +
