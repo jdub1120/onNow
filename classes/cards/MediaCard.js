@@ -954,12 +954,20 @@ class MediaCard {
           : ""
       ) + ` style="background-image: ` + (
         isSportsCard
-          ? `linear-gradient(135deg, ` + sportsGradientColors.away + ` 0%, ` + sportsGradientColors.away + ` 40%, ` + sportsGradientColors.home + ` 60%, ` + sportsGradientColors.home + ` 100%)`
+          ? `linear-gradient(135deg, ` + sportsGradientColors.away + ` 0%, ` + sportsGradientColors.away + ` 50%, ` + sportsGradientColors.home + ` 50%, ` + sportsGradientColors.home + ` 100%)`
           : musicGradientColors
           ? `radial-gradient(ellipse at ` + musicGradientColors.x + `% ` + musicGradientColors.y + `%, ` + musicGradientColors.primary + ` 0%, ` + musicGradientColors.secondary + ` 70%)`
           : `url('` + baseUrl + this.posterArtURL + `')`
       ) + `">
-      </div>
+      </div>` + (
+        // A second, oversized+blurred copy of the same hard-split background, so only the seam
+        // itself looks soft while both far sides stay genuinely flat — see the CSS comment on
+        // .posterArtSeamBlur for why it's oversized. Resize() keeps this in sync with the base
+        // layer once it knows the logos' actual on-screen positions.
+        isSportsCard
+          ? `<div class="posterArtSeamBlur" id="posterArtSeamBlur` + this.ID + `" style="background-image: linear-gradient(135deg, ` + sportsGradientColors.away + ` 0%, ` + sportsGradientColors.away + ` 50%, ` + sportsGradientColors.home + ` 50%, ` + sportsGradientColors.home + ` 100%)"></div>`
+          : ""
+      ) + `
         <div class="banners">
           <div class="bannerBigText ` +
       this.cardType[0] +

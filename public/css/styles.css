@@ -300,6 +300,23 @@ iframe {
   background-repeat: repeat;
 }
 
+/* Sports only: a second, oversized copy of the same hard-split team-color background, blurred
+   to soften just the seam — the base .posterArt layer underneath stays perfectly flat/solid on
+   both far sides (see the comment above .posterArt.solidGradient::after for why flat beats a
+   long gradual gradient on a TV). Sized well beyond the viewport (top/left/width/height) so the
+   blur filter's own edge-fade happens off-screen; without that, a blurred element sized to
+   exactly fill the viewport would fade toward transparent right at the true screen edges. */
+.posterArtSeamBlur {
+  position: fixed;
+  z-index: 0;
+  top: -15vh;
+  left: -15vw;
+  width: 130vw;
+  height: 130vh;
+  pointer-events: none;
+  filter: blur(60px);
+}
+
 .poster {
   max-width: 100%;
   vertical-align: top;

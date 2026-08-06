@@ -902,11 +902,18 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
           'top': (sportsGroupTop + homeTopLocal) + 'px'
         });
 
-        // Rebuild the background gradient from the logos' actual on-screen positions rather
-        // than the server-rendered fixed 40%/60% stops (tuned for one specific aspect ratio) —
-        // see the comment on this element's data-away-color/data-home-color attributes in
-        // MediaCard.js for why that broke on displays whose aspect ratio makes the centered
-        // logo group narrower relative to the screen than it was in testing.
+        // Rebuild the background from the logos' actual on-screen positions rather than the
+        // server-rendered fixed 40%/60% stops (tuned for one specific aspect ratio) — see the
+        // comment on this element's data-away-color/data-home-color attributes in MediaCard.js
+        // for why that broke on displays whose aspect ratio makes the centered logo group
+        // narrower relative to the screen than it was in testing.
+        //
+        // Two solid team-color halves with a hard split, blurred only at the seam by a second,
+        // oversized copy layered on top — rather than one long gradual CSS gradient. A gradual
+        // gradient interpolates through every intermediate shade across a wide band, which is
+        // exactly the kind of large smooth 8-bit ramp that bands/looks harsh on a TV's weaker
+        // color processing; a hard split keeps both far sides genuinely flat (nothing to band)
+        // and confines the soft transition to a blurred strip at the seam instead.
         //
         // A CSS linear-gradient's percentage stops are measured along the gradient's OWN
         // diagonal line, not straight left-to-right — and that line's length depends on the
@@ -915,9 +922,10 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
         // version of this code did) only happens to look right at whatever aspect ratio it was
         // tested at; on a differently-proportioned screen (e.g. a portrait TV much taller/
         // narrower than a test browser window) the transition band lands somewhere else
-        // entirely. Converting each logo's actual (x, y) position into a proper position along
+        // entirely. Converting the logos' actual (x, y) position into a proper position along
         // the 135deg gradient line fixes that for any aspect ratio.
         var posterArtEl = $('#' + id + ' .posterArt');
+        var seamBlurEl = $('#posterArtSeamBlur' + id);
         var awayColorAttr = posterArtEl.attr('data-away-color');
         var homeColorAttr = posterArtEl.attr('data-home-color');
         if (awayColorAttr && homeColorAttr) {
@@ -934,39 +942,23 @@ function startInactivityCheck(element, delay, callbackInactivity, callbackActive
             return 50 + (t / gradHalfLen) * 50;
           }
 
-          // Y is deliberately the screen's true vertical center, not the logos' own (higher)
-          // position — projecting the box's own center always lands on exactly 50% by
-          // construction of the gradient-line algorithm, and a transition centered on exactly
-          // 50% is what guarantees an equal-area black/blue split (a line through a rectangle's
-          // center always bisects its area, on any angle or aspect ratio). Using the logos' own
-          // Y instead pulls the transition's center off of 50% — barely noticeable on a
-          // roughly-square window, but a large, visible area imbalance on a very tall/narrow
-          // screen, since the logos sit above the group's true center (the caption/title below
-          // them pulls the *group's* center down, but the logos themselves stay above it).
+          // Deliberately the logos' own row, not the screen's true vertical center — this is
+          // what makes the seam actually pass through the visual gap between the logos instead
+          // of near/behind one of them (the caption below the logos pulls the *group's* center
+          // down, but the logos themselves sit above it, so anchoring to true screen center
+          // shifts the seam away from the gap). Splitting exactly at the midpoint between the
+          // two logo edges, projected through this row, keeps it right in the gap.
           var awayEdgeX = groupCenterX + awayCenterXLocal + logoSize / 2;
           var homeEdgeX = groupCenterX + homeCenterXLocal - logoSize / 2;
-          var gradCenterY = gradH / 2;
+          var logoRowY = sportsGroupTop + awayTopLocal + logoSize / 2;
+          var splitPct = gradientPercentAt((awayEdgeX + homeEdgeX) / 2, logoRowY);
+          splitPct = Math.max(0, Math.min(100, splitPct));
 
-          var awayRightPct = gradientPercentAt(awayEdgeX, gradCenterY);
-          var homeLeftPct = gradientPercentAt(homeEdgeX, gradCenterY);
-          // Keep a minimum gap even if the logos end up touching/overlapping at extreme aspect
-          // ratios, and clamp to a sane range so the stops stay in ascending order.
-          if (homeLeftPct - awayRightPct < 4) {
-            var mid = (awayRightPct + homeLeftPct) / 2;
-            awayRightPct = mid - 2;
-            homeLeftPct = mid + 2;
-          }
-          // Soften the blend by widening the transition zone outward from the gap's edges
-          // (rather than the hard-ish cutoff right at the logos), while still keeping it
-          // roughly centered between them so it doesn't wash back under either logo.
-          var soften = (homeLeftPct - awayRightPct) * 1.3;
-          awayRightPct -= soften;
-          homeLeftPct += soften;
-          awayRightPct = Math.max(0, Math.min(100, awayRightPct));
-          homeLeftPct = Math.max(0, Math.min(100, homeLeftPct));
-          posterArtEl.css('background-image',
-            'linear-gradient(135deg, ' + awayColorAttr + ' 0%, ' + awayColorAttr + ' ' + awayRightPct + '%, ' +
-            homeColorAttr + ' ' + homeLeftPct + '%, ' + homeColorAttr + ' 100%)');
+          var hardSplitGradient =
+            'linear-gradient(135deg, ' + awayColorAttr + ' 0%, ' + awayColorAttr + ' ' + splitPct + '%, ' +
+            homeColorAttr + ' ' + splitPct + '%, ' + homeColorAttr + ' 100%)';
+          posterArtEl.css('background-image', hardSplitGradient);
+          seamBlurEl.css('background-image', hardSplitGradient);
         }
 
         var vsCenterYLocal = (awayTopLocal + logoSize / 2 + homeTopLocal + logoSize / 2) / 2;
